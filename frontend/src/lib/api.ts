@@ -1,6 +1,5 @@
-// API client. Keys live in localStorage (default) and are sent per request as headers;
-// the backend never returns them.
-
+// Keys are saved (encrypted) to the signed-in account by default, so they follow the user
+// to any browser.  "Browser only" mode keeps them in localStorage and sends them per request.
 export type Keys = {
   llmApiKey: string;
   llmBaseUrl: string;
@@ -8,6 +7,13 @@ export type Keys = {
   elevenlabsApiKey: string;
   preset: string;
 };
+
+export type User = { id: string; username: string; created_at: number };
+
+let onUnauthorized: (() => void) | null = null;
+export function setUnauthorizedHandler(fn: () => void) {
+  onUnauthorized = fn;
+}
 
 const KEYS_STORAGE = "luma.keys.v1";
 
@@ -49,7 +55,7 @@ export async function api<T = any>(path: string, init: RequestInit & { json?: un
     headers["Content-Type"] = "application/json";
     body = JSON.stringify(init.json);
   }
-  const res = await fetch(path, { ...init, headers, body });
+  const res = await fetch(path, { ...init, headers, body, credentials: "same-origin" });
   const text = await res.text();
   let data: any = null;
   try {
@@ -57,6 +63,7 @@ export async function api<T = any>(path: string, init: RequestInit & { json?: un
   } catch {
     data = text;
   }
+  if (res.status === 401 && !path.startsWith("/api/auth/")) onUnauthorized?.();
   if (!res.ok) {
     const detail = data?.detail;
     const msg = typeof detail === "string" ? detail : Array.isArray(detail) ? detail.map((d: any) => d.msg || JSON.stringify(d)).join("; ") : res.statusText;

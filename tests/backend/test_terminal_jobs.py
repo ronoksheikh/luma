@@ -141,11 +141,12 @@ def test_encrypted_remember_roundtrip(client, server):
     assert client.get("/api/settings").json()["llm"]["key_source"] == "none"
 
 
-def test_terminal_websocket_mirror_and_takeover(server, project):
+def test_terminal_websocket_mirror_and_takeover(server, project, client):
     import websockets
+    from conftest import cookie_header
 
     async def go():
-        async with websockets.connect(f"ws://127.0.0.1:{server['port']}/ws/terminal/{project['id']}") as ws:
+        async with websockets.connect(f"ws://127.0.0.1:{server['port']}/ws/terminal/{project['id']}", additional_headers=cookie_header(client)) as ws:
             await ws.send(json.dumps({"type": "input", "data": "echo not-allowed-yet\n"}))  # ignored without take-over
             await ws.send(json.dumps({"type": "takeover", "on": True}))
             await ws.send(json.dumps({"type": "input", "data": "echo taken-over-$((6*7))\n"}))
@@ -162,7 +163,7 @@ def test_terminal_websocket_mirror_and_takeover(server, project):
 
     async def evil():
         async with websockets.connect(f"ws://127.0.0.1:{server['port']}/ws/terminal/{project['id']}",
-                                      additional_headers={"Origin": "https://evil.example"}) as ws:
+                                      additional_headers={"Origin": "https://evil.example", **cookie_header(client)}) as ws:
             await ws.recv()
 
     with pytest.raises(Exception):

@@ -9,3 +9,5 @@ frontend/dist/
 .venv/
 *.tmp.png
 .env
+build/
+docs/screenshots/*.tmp.png

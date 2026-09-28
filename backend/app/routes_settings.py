@@ -5,15 +5,17 @@ import shutil
 import subprocess
 import time
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from . import db
+from .auth import require_user
 from .agent.llm import PRESETS, describe_error, list_models, test_connection
 from .config import DEFAULT_SETTINGS, config
 from .secrets_store import Credentials, forget, mask, remember, remembered, resolve
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_user)])
+public_router = APIRouter()
 
 
 def load_settings() -> dict:
@@ -212,7 +214,7 @@ async def el_test(request: Request, body: ElIn | None = None):
     return res
 
 
-@router.get("/healthz")
+@public_router.get("/healthz")
 def healthz():
     ok_db = True
     try:

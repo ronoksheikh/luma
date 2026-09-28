@@ -5,7 +5,7 @@ import asyncio
 import json
 import shutil
 
-from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -17,10 +17,12 @@ from .events import sse_stream
 from .jobs import jobs
 from .routes_projects import add_asset_bytes, ensure_workspace, get_project, project_json
 from .secrets_store import resolve
+from .auth import current_user, require_user, user_from_token
 from .security import host_ok, origin_ok
 from .terminal import terminals
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_user)])
+ws_router = APIRouter()
 
 
 def run_json(r: db.Run) -> dict:
@@ -51,18 +53,22 @@ async def create_run(project_id: str, body: MessageIn, request: Request):
     return run_json(runs.get(r.id))
 
 
-@router.get("/api/runs/{run_id}")
-def get_run(run_id: str):
+def own_run(run_id: str) -> db.Run:
     r = runs.get(run_id)
     if r is None:
         raise HTTPException(404, "run not found")
-    return run_json(r)
+    get_project(r.project_id)  # 404 unless the signed-in user owns it
+    return r
+
+
+@router.get("/api/runs/{run_id}")
+def get_run(run_id: str):
+    return run_json(own_run(run_id))
 
 
 @router.get("/api/runs/{run_id}/events")
 async def run_events(run_id: str, request: Request, after: int | None = None):
-    if runs.get(run_id) is None:
-        raise HTTPException(404, "run not found")
+    own_run(run_id)
     last = request.headers.get("last-event-id")
     last_id = int(last) if last and last.isdigit() else (after or 0)
     return StreamingResponse(sse_stream(run_id, last_id, request.is_disconnected), media_type="text/event-stream",
@@ -71,9 +77,7 @@ async def run_events(run_id: str, request: Request, after: int | None = None):
 
 @router.post("/api/runs/{run_id}/message")
 async def post_message(run_id: str, body: MessageIn, request: Request):
-    r = runs.get(run_id)
-    if r is None:
-        raise HTTPException(404, "run not found")
+    r = own_run(run_id)
     creds = resolve(request)
     if r.kind == "agent" and not runs.is_active(run_id) and run_id not in runs.answers and not creds.has_llm and run_id not in runs.creds:
         raise HTTPException(400, "No LLM configured. Open Settings and add a base URL, model and API key.")
@@ -83,6 +87,7 @@ async def post_message(run_id: str, body: MessageIn, request: Request):
 
 @router.post("/api/runs/{run_id}/cancel")
 async def cancel_run(run_id: str):
+    own_run(run_id)
     try:
         return await runs.cancel(run_id)
     except KeyError:
@@ -91,11 +96,13 @@ async def cancel_run(run_id: str):
 
 @router.get("/api/projects/{project_id}/jobs")
 def list_jobs(project_id: str):
+    get_project(project_id)
     return jobs.list(project_id)
 
 
 @router.post("/api/projects/{project_id}/jobs/{name}/kill")
 def kill_job(project_id: str, name: str):
+    get_project(project_id)
     try:
         return jobs.kill(project_id, name)
     except Exception as e:  # noqa: BLE001
@@ -110,9 +117,9 @@ def kill_job(project_id: str, name: str):
 @router.post("/api/demo", status_code=201)
 async def start_demo():
     with db.session() as s:
-        p = s.scalars(select(db.Project).where(db.Project.kind == "demo")).first()
+        p = s.scalars(select(db.Project).where(db.Project.kind == "demo", db.Project.owner_id == current_user.get())).first()
         if p is None:
-            p = db.Project(name="Demo — Veyra outro", kind="demo",
+            p = db.Project(name="Demo — Veyra outro", kind="demo", owner_id=current_user.get(),
                            brief="Keyless demo: the fan_unfold template on the bundled original sample logo (Veyra).",
                            settings={"width": 1920, "height": 1080, "fps": 60, "duration": 5.0, "formats": ["mp4"], "avoid_colors": ["#FF0000"],
                                      "voice_language": "en", "voice_tone": "", "captions": False})
@@ -136,13 +143,20 @@ async def start_demo():
 # ======================================================================================
 
 
-@router.websocket("/ws/terminal/{project_id}")
+@ws_router.websocket("/ws/terminal/{project_id}")
 async def terminal_ws(ws: WebSocket, project_id: str):
     if not host_ok(ws.headers.get("host")) or not origin_ok(ws.headers.get("origin"), ws.headers.get("host")):
         await ws.close(code=4403)
         return
+    from .auth import COOKIE
+
+    user = user_from_token(ws.cookies.get(COOKIE))
+    if user is None:
+        await ws.close(code=4401)
+        return
     with db.session() as s:
-        if s.get(db.Project, project_id) is None:
+        p = s.get(db.Project, project_id)
+        if p is None or p.owner_id != user.id:
             await ws.close(code=4404)
             return
     await ws.accept()

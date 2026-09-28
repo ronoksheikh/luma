@@ -1,43 +1,56 @@
 # Luma Studio — build checklist
 
-Legend: `[x]` done **and verified by running it**, `[~]` partially done / caveat noted, `[ ]` not done.
+Legend: `[x]` done **and verified by running it**, `[~]` done with a caveat noted, `[ ]` not done.
 
 ## Phase 1 — engine + demo
-- [ ] brand (colour tokens, sRGB↔linear, gradient LUTs, objectBoundingBox gradients)
-- [ ] svg (full path grammar, transforms, flatten, skia paths, split w/ area check, union, notch/pivot/symmetry)
-- [ ] text (harfbuzz shaping → skia glyph paths, kerning, tracking)
-- [ ] layout (lockup builder, least-squares fit to reference, safe areas)
-- [ ] motion (easings, closed-form springs, Hermite channels, staggers, timeline/events)
-- [ ] camera (perspective camera, projection, plane homographies)
-- [ ] layers (HDR buffers, additive light, sRGB solids, motion-blur accumulator, DoF bins)
-- [ ] fx (bloom, shafts, roll-off, glow/pen tips, beams, write-on, ignite, shockwave flood, SDF wave, sheen, text rise, captions)
-- [ ] audio (synths, reverb, pans, placement, ducking, LUFS, true-peak limiter, 24-bit WAV, spectrogram)
-- [ ] encode (TPDF dither w/ exact black, H.264/ProRes pipes, mux, SRT, ffprobe)
-- [ ] qc (all qc_report checks)
-- [ ] templates: fan_unfold, exploded_assembly, stroke_reveal, voiced_explainer
-- [ ] CLI + demo renders 300-frame 5.000 s 60 fps MP4 with audio
-- [ ] engine unit tests pass
+- [x] brand (colour tokens, sRGB↔linear, gradient LUTs, objectBoundingBox gradients)
+- [x] svg (full path grammar, transforms, flatten, skia paths, split with area check, union, notch/pivot via exact area moments, symmetry)
+- [x] text (HarfBuzz shaping → skia glyph paths, kerning, tracking)
+- [x] layout (lockup builder, least-squares fit to reference, safe areas)
+- [x] motion (easings, closed-form springs, Hermite channels, staggers, timeline/events)
+- [x] camera (perspective camera, projection, plane homographies)
+- [x] layers (HDR buffers, additive light, sRGB solids, adaptive motion-blur accumulator, DoF bins)
+- [x] fx (bloom, shafts, roll-off, glow/pen tips, beams, write-on, ignite, shockwave, SDF wave, sheen, text rise, captions)
+- [x] audio (synths, reverb, pans, placement, ducking, LUFS, true-peak limiter, 24-bit WAV, spectrogram)
+- [x] encode (TPDF dither that keeps exact values, H.264/ProRes pipes, mux, SRT, ffprobe)
+- [x] qc (frame count, fps, duration, black first frame, flicker, still ending, final-frame match, true peak, loudness, audio length, A/V sync)
+- [x] templates: fan_unfold, exploded_assembly, stroke_reveal, voiced_explainer (each guarantees a ≥0.45 s exact hold at any duration)
+- [x] CLI + demo renders a 300-frame, 5.000 s, 60 fps H.264 High MP4 with AAC audio; QC passes
+- [x] engine unit tests pass (59)
 
 ## Phase 2 — backend + terminal + job manager
-- [ ] FastAPI app, SQLite models, settings, projects CRUD, assets (limits, magic bytes, SVG sanitizer, analysis)
-- [ ] EventBus + SSE with replay/resume
-- [ ] persistent PTY terminal + WebSocket + take over
-- [ ] job manager (detached, survives tool call, kill, concurrency)
-- [ ] secret handling (headers, encrypted remember, env prefill, redaction)
+- [x] FastAPI app, SQLite models, settings, projects CRUD, assets (20 files, 25 MB, magic bytes, SVG sanitiser, analysis)
+- [x] EventBus + SSE with persisted typed events and Last-Event-ID replay/resume
+- [x] persistent PTY terminal per project + WebSocket mirror + take over
+- [x] job manager (detached setsid processes, survive the tool call, progress, kill, concurrency)
+- [x] secret handling (per-request headers, encrypted per-account storage, env fallback, redaction, never in the sandbox env)
+- [x] **accounts**: username/password sign-up and sign-in (scrypt), HttpOnly session cookie, per-user projects/runs/terminal/keys, sign out, change password (signs out everywhere), `LUMA_ALLOW_SIGNUP`
 
 ## Phase 3 — agent loop + tools
-- [ ] streaming loop, parallel tool calls, malformed JSON, retries, limits, context mgmt, follow-ups, stop
-- [ ] terminal/file/media tools, render_preview w/ vision, QC, ask_user, finish
-- [ ] director prompt
+- [x] streaming loop, parallel tool calls, malformed-JSON repair, retries, step/time limits, context compaction, follow-ups, stop — verified against a scripted OpenAI-compatible mock server
+- [x] terminal/file/media tools, render_preview with vision, QC, ask_user, finish
+- [x] director prompt (editable in Settings)
+- [~] tested against real providers: **not run** (no OpenAI/OpenRouter key was available while building). The client uses the official `openai` SDK and only standard chat-completions streaming.
 
 ## Phase 4 — ElevenLabs tools
-- [ ] el_* tools via official SDK, budget, cache, sidecars, capability test
+- [x] el_* tools via the official `elevenlabs` SDK, character budget, content-hash cache, sidecars, capability test — verified against a mock server
+- [~] real ElevenLabs API: **not run** (no key available; elevenlabs.io docs were blocked from the build sandbox, so the SDK source and its docstrings were used as the reference)
 
 ## Phase 5 — frontend
-- [ ] setup screen, settings, 3-pane studio, run timeline, terminal, preview/gallery/audio/outputs/QC tabs, demo
+- [x] rebuilt with **HeroUI v3** components and **Phosphor** icons; minimal light theme from the Lumademy brand guidelines (no navy); Inter / Inter Display and Geist Mono
+- [x] sign-in / create-account screen; data follows the account to a new browser (Playwright test)
+- [x] sidebar (projects: create, rename, duplicate, delete; demo; account menu), director timeline (streamed markdown, thinking, tool rows with args/output/diff/images/audio/progress, questions, delivered card), composer with upload and stop
+- [x] inspector tabs: Preview (frame stepping, loop, end-card poster), Assets (drop zone, analysis), Terminal (Night theme, take over), Media, Files, QC
+- [x] settings modal (connections with "save to my account", director prompt, limits, account/password) and brief & output modal
+- [x] mobile layout (Director/Studio switcher, projects drawer, no horizontal scroll)
+- [~] logo: `frontend/public/brand/logo-mark.svg` and `favicon.svg` are **stand-ins** in the brand icon gradient; only the guidelines text was provided, not the logo files
 
 ## Phase 6 — Docker hardening
-- [ ] multi-stage Dockerfile, compose (localhost bind, limits, healthcheck, cap_drop), sandbox user, network toggle
+- [x] multi-stage Dockerfile (pinned digests + lock file), compose (127.0.0.1 bind, CPU/memory/pids limits, healthcheck, cap_drop ALL + minimal caps), sandbox user `luma`, backend user `studio`, iptables network toggle
+- [~] the image was verified on an Ubuntu 24.04 base (`tests/e2e/ubuntu-base.Dockerfile`) because the Debian mirrors were blocked from the build sandbox; the default `python:3.11-slim-bookworm` base was not built end-to-end here
 
 ## Phase 7 — tests + docs
-- [ ] backend tests, e2e docker test, README, ENGINE_NOTES, LICENSE
+- [x] backend tests (40, incl. auth and per-user isolation), engine tests (59)
+- [x] e2e test against the container (health, login required, demo MP4 via ffprobe, QC, sandbox isolation, terminal WebSocket)
+- [x] Playwright UI smoke test (sign-up, demo, upload, terminal, settings, new-browser sign-in, mobile)
+- [x] README, ARCHITECTURE, ENGINE_NOTES, LICENSE (MIT)

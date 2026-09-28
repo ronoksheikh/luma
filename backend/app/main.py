@@ -28,10 +28,11 @@ BANNER = r"""
 """
 
 WARNING = """
-  ⚠  SECURITY WARNING — Luma Studio has NO LOGIN.
-  ⚠  Anyone who can reach this port gets a full shell inside the container and can spend
-  ⚠  your LLM / ElevenLabs credits. Keep it bound to 127.0.0.1 (the default). To expose it,
-  ⚠  put it behind a reverse proxy WITH authentication and set LUMA_ALLOWED_HOSTS.
+  ⚠  SECURITY NOTE — every signed-in account gets a shell inside this container and can
+  ⚠  spend the API credits saved to it. The first visitor creates the first account, so
+  ⚠  keep the port on 127.0.0.1 (the default) until you have signed up. To expose it, use
+  ⚠  TLS (a reverse proxy), set LUMA_ALLOWED_HOSTS and set LUMA_ALLOW_SIGNUP=false once
+  ⚠  your accounts exist.
 """
 
 
@@ -61,7 +62,7 @@ async def lifespan(app: FastAPI):
     runs.recover()
     print(BANNER, flush=True)
     print(WARNING, flush=True)
-    log.warning("Luma Studio has no authentication: keep it on 127.0.0.1 or behind an authenticating reverse proxy.")
+    log.warning("Accounts get a sandbox shell: keep the port private, use TLS when exposing it, and close sign-up (LUMA_ALLOW_SIGNUP=false) once accounts exist.")
     if db.get_setting("terminal_network") is False:
         from .routes_settings import apply_network
 
@@ -73,12 +74,18 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Luma Studio", version="1.0.0", lifespan=lifespan, docs_url="/api/docs", openapi_url="/api/openapi.json")
+    from .auth import router as auth_router
     from .routes_projects import router as projects_router
     from .routes_runs import router as runs_router
+    from .routes_runs import ws_router
+    from .routes_settings import public_router
     from .routes_settings import router as settings_router
     from .security import SecurityMiddleware
 
     app.add_middleware(SecurityMiddleware)
+    app.include_router(public_router)
+    app.include_router(auth_router)
+    app.include_router(ws_router)
     app.include_router(settings_router)
     app.include_router(projects_router)
     app.include_router(runs_router)

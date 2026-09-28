@@ -124,8 +124,15 @@ class Credentials:
         return f"Credentials(base_url={self.llm_base_url!r}, model={self.llm_model!r}, llm_key={'set' if self.llm_api_key else 'unset'}, el_key={'set' if self.elevenlabs_api_key else 'unset'})"
 
 
-def remembered() -> dict:
-    blob = db.get_setting("remembered_credentials")
+def _cred_key(user_id: str | None = None) -> str:
+    from .auth import current_user
+
+    uid = user_id or current_user.get()
+    return f"credentials:{uid}" if uid else "remembered_credentials"
+
+
+def remembered(user_id: str | None = None) -> dict:
+    blob = db.get_setting(_cred_key(user_id))
     if not blob:
         return {}
     import json
@@ -149,11 +156,11 @@ def remember(creds: dict) -> None:
         else:
             cur[k] = v
             register_secret(v if "key" in k else None)
-    db.set_setting("remembered_credentials", encrypt(json.dumps(cur)) if cur else None)
+    db.set_setting(_cred_key(), encrypt(json.dumps(cur)) if cur else None)
 
 
 def forget() -> None:
-    db.set_setting("remembered_credentials", None)
+    db.set_setting(_cred_key(), None)
 
 
 def resolve(request: Request | None = None, headers: dict | None = None) -> Credentials:
@@ -195,9 +202,17 @@ def init_secrets() -> None:
     fernet()
     for v in (config.llm_api_key, config.elevenlabs_api_key):
         register_secret(v)
-    for k, v in remembered().items():
-        if "key" in k:
-            register_secret(v)
+    import json as _json
+
+    for row_key, blob in db.all_settings().items():
+        if (row_key.startswith("credentials:") or row_key == "remembered_credentials") and blob:
+            raw = decrypt(blob)
+            try:
+                for k, v in (_json.loads(raw) if raw else {}).items():
+                    if "key" in k:
+                        register_secret(v)
+            except ValueError:
+                pass
 
 
 class RedactingFilter(logging.Filter):

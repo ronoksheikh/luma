@@ -1,5 +1,6 @@
+import { toast } from "@heroui/react";
 import { create } from "zustand";
-import { api, loadKeys, saveKeys, type Keys, type Project, type Run } from "./api";
+import { api, loadKeys, saveKeys, type Keys, type Project, type Run, type User } from "./api";
 
 export type ServerSettings = {
   settings: Record<string, any>;
@@ -13,6 +14,12 @@ export type ServerSettings = {
 };
 
 type State = {
+  user: User | null;
+  authChecked: boolean;
+  signupOpen: boolean;
+  setUser: (u: User | null) => void;
+  checkAuth: () => Promise<User | null>;
+  logout: () => Promise<void>;
   keys: Keys;
   server: ServerSettings | null;
   projects: Project[];
@@ -22,7 +29,7 @@ type State = {
   settingsOpen: boolean;
   setupDone: boolean;
   rightTab: string;
-  toast: { text: string; tone: "ok" | "bad" | "info" } | null;
+
   setKeys: (k: Partial<Keys>) => void;
   loadServer: () => Promise<ServerSettings>;
   refreshProjects: () => Promise<Project[]>;
@@ -30,12 +37,37 @@ type State = {
   refreshRuns: () => Promise<void>;
   setRun: (id: string | null) => void;
   setSettingsOpen: (v: boolean) => void;
+  settingsTab: string;
+  setSettingsTab: (t: string) => void;
+  openSettings: (tab?: string) => void;
+  projectSettingsOpen: boolean;
+  setProjectSettingsOpen: (v: boolean) => void;
+  navOpen: boolean;
+  assetsVersion: number;
+  bumpAssets: () => void;
+  setNavOpen: (v: boolean) => void;
   setSetupDone: (v: boolean) => void;
   setRightTab: (t: string) => void;
   notify: (text: string, tone?: "ok" | "bad" | "info") => void;
+  mainView: "chat" | "inspector";
+  setMainView: (v: "chat" | "inspector") => void;
 };
 
 export const useStore = create<State>((set, get) => ({
+  user: null,
+  authChecked: false,
+  signupOpen: true,
+  setUser: (u) => set({ user: u }),
+  checkAuth: async () => {
+    const st = await api<{ user: User | null; signup_open: boolean }>("/api/auth/state");
+    set({ user: st.user, authChecked: true, signupOpen: st.signup_open });
+    return st.user;
+  },
+  logout: async () => {
+    await api("/api/auth/logout", { method: "POST" }).catch(() => {});
+    localStorage.removeItem("luma.project");
+    set({ user: null, projects: [], projectId: null, runId: null, runs: [], server: null });
+  },
   keys: loadKeys(),
   server: null,
   projects: [],
@@ -45,7 +77,8 @@ export const useStore = create<State>((set, get) => ({
   settingsOpen: false,
   setupDone: localStorage.getItem("luma.setupDone") === "1",
   rightTab: localStorage.getItem("luma.rightTab") || "preview",
-  toast: null,
+  mainView: "chat",
+  setMainView: (v) => set({ mainView: v }),
   setKeys: (k) => {
     const keys = { ...get().keys, ...k };
     saveKeys(keys);
@@ -78,6 +111,15 @@ export const useStore = create<State>((set, get) => ({
   },
   setRun: (id) => set({ runId: id }),
   setSettingsOpen: (v) => set({ settingsOpen: v }),
+  settingsTab: "connections",
+  setSettingsTab: (t) => set({ settingsTab: t }),
+  openSettings: (tab = "connections") => set({ settingsOpen: true, settingsTab: tab }),
+  projectSettingsOpen: false,
+  setProjectSettingsOpen: (v) => set({ projectSettingsOpen: v }),
+  navOpen: false,
+  assetsVersion: 0,
+  bumpAssets: () => set({ assetsVersion: get().assetsVersion + 1 }),
+  setNavOpen: (v) => set({ navOpen: v }),
   setSetupDone: (v) => {
     localStorage.setItem("luma.setupDone", v ? "1" : "0");
     set({ setupDone: v });
@@ -87,9 +129,8 @@ export const useStore = create<State>((set, get) => ({
     set({ rightTab: t });
   },
   notify: (text, tone = "info") => {
-    set({ toast: { text, tone } });
-    setTimeout(() => {
-      if (get().toast?.text === text) set({ toast: null });
-    }, 4500);
+    if (tone === "ok") toast.success(text);
+    else if (tone === "bad") toast.danger(text);
+    else toast(text);
   },
 }));

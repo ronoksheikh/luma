@@ -1,8 +1,9 @@
 # Luma Studio — `docker compose up --build`, then open http://localhost:8080
 #
-# SECURITY: there is NO LOGIN. The port is bound to 127.0.0.1 on purpose. Anyone who can
-# reach it gets a shell inside this container and can spend your API credits. To expose it,
-# put it behind a reverse proxy WITH authentication and set LUMA_ALLOWED_HOSTS.
+# SECURITY: sign in with a username and password (the first visitor creates the first
+# account). Every account gets a shell inside this container, so the port is bound to
+# 127.0.0.1 on purpose. To expose it: put it behind TLS, set LUMA_ALLOWED_HOSTS, and set
+# LUMA_ALLOW_SIGNUP=false once your accounts exist.
 name: luma-studio
 
 services:
@@ -24,6 +25,7 @@ services:
       LLM_MODEL: ${LLM_MODEL:-}
       ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
       LUMA_ALLOWED_HOSTS: ${LUMA_ALLOWED_HOSTS:-}
+      LUMA_ALLOW_SIGNUP: ${LUMA_ALLOW_SIGNUP:-true}
       LUMA_SANDBOX_SUDO: ${LUMA_SANDBOX_SUDO:-1}
       LUMA_JOB_CONCURRENCY: ${LUMA_JOB_CONCURRENCY:-1}
     restart: unless-stopped

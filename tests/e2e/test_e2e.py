@@ -3,8 +3,9 @@
     docker compose up -d --build
     LUMA_E2E_URL=http://127.0.0.1:8080 pytest -m e2e tests/e2e -v
 
-Asserts /healthz, the keyless demo (300-frame, 5.000 s, 60 fps MP4 with audio, QC pass),
-the sandbox (user, scrubbed env, sudo, API port blocked) and the terminal WebSocket.
+Asserts /healthz, that the API requires a login, the keyless demo (300-frame, 5.000 s,
+60 fps MP4 with audio, QC pass), the sandbox (user, scrubbed env, sudo, API port blocked)
+and the terminal WebSocket.
 """
 import asyncio
 import json
@@ -19,6 +20,19 @@ import pytest
 pytestmark = pytest.mark.e2e
 BASE = os.environ.get("LUMA_E2E_URL", "http://127.0.0.1:8080")
 H = {"X-Luma-Client": "1"}
+USER = {"username": os.environ.get("LUMA_E2E_USER", "e2e_user"), "password": os.environ.get("LUMA_E2E_PASSWORD", "e2e password 123")}
+
+
+@pytest.fixture(scope="module")
+def client():
+    """A signed-in client (signs up on a fresh instance, otherwise logs in)."""
+    c = httpx.Client(base_url=BASE, headers=H, timeout=60)
+    r = c.post("/api/auth/login", json=USER)
+    if r.status_code == 401:
+        r = c.post("/api/auth/signup", json=USER)
+    assert r.status_code in (200, 201), r.text
+    yield c
+    c.close()
 
 
 def _wait(fn, timeout, interval=2.0):
@@ -42,15 +56,20 @@ def test_spa_is_served():
     assert "Content-Security-Policy" in r.headers
 
 
-def test_demo_renders_300_frames_5s_60fps_with_audio():
-    r = httpx.post(f"{BASE}/api/demo", headers=H, timeout=60).json()
+def test_api_requires_login():
+    assert httpx.get(f"{BASE}/api/projects", timeout=10).status_code == 401
+    assert httpx.post(f"{BASE}/api/demo", headers=H, timeout=10).status_code == 401
+
+
+def test_demo_renders_300_frames_5s_60fps_with_audio(client):
+    r = client.post("/api/demo").json()
     rid, pid = r["run"]["id"], r["project"]["id"]
-    run = _wait(lambda: (lambda x: x if x["status"] in ("completed", "failed") else None)(httpx.get(f"{BASE}/api/runs/{rid}").json()), 1800, 5)
+    run = _wait(lambda: (lambda x: x if x["status"] in ("completed", "failed") else None)(client.get(f"/api/runs/{rid}").json()), 1800, 5)
     assert run["status"] == "completed", run
     with tempfile.TemporaryDirectory() as d:
         mp4 = os.path.join(d, "demo.mp4")
         with open(mp4, "wb") as f:
-            f.write(httpx.get(f"{BASE}/api/files/{pid}/outputs/luma_demo.mp4", timeout=120).content)
+            f.write(client.get(f"/api/files/{pid}/outputs/luma_demo.mp4", timeout=120).content)
         probe = json.loads(subprocess.run(["ffprobe", "-v", "error", "-count_frames", "-show_streams", "-show_format", "-of", "json", mp4],
                                           capture_output=True, text=True, check=True).stdout)
     v = next(s for s in probe["streams"] if s["codec_type"] == "video")
@@ -61,21 +80,22 @@ def test_demo_renders_300_frames_5s_60fps_with_audio():
     assert (v["width"], v["height"]) == (1920, 1080) and v["codec_name"] == "h264" and v["profile"] == "High"
     assert v.get("color_primaries") == "bt709"
     assert a and a[0]["codec_name"] == "aac"
-    qc = httpx.get(f"{BASE}/api/files/{pid}/outputs/qc_report.json").json()
+    qc = client.get(f"/api/files/{pid}/outputs/qc_report.json").json()
     assert qc["pass"], [c for c in qc["checks"] if not c["pass"]]
 
 
-def test_sandbox_terminal_is_scrubbed_and_isolated():
+def test_sandbox_terminal_is_scrubbed_and_isolated(client):
     import websockets
 
-    pid = httpx.post(f"{BASE}/api/projects", headers=H, json={"name": "e2e sandbox"}).json()["id"]
+    pid = client.post("/api/projects", json={"name": "e2e sandbox"}).json()["id"]
+    cookie = "; ".join(f"{k}={v}" for k, v in client.cookies.items())
     cmd = ("echo USER=$(id -un); env | grep -ci -E 'api_key|elevenlabs' || true; "
            "sudo -n true && echo SUDO_OK; "
            "curl -s -m 3 -o /dev/null -w 'API=%{http_code}\\n' http://127.0.0.1:8080/healthz || echo API=blocked; "
            "cat /data/secrets/fernet.key 2>&1 | head -c 200; echo; ls -ld /data/studio.db; python -c 'import luma_engine; print(\"ENGINE\" + \"_OK\")'\n")
 
     async def go():
-        async with websockets.connect(f"{BASE.replace('http', 'ws')}/ws/terminal/{pid}") as ws:
+        async with websockets.connect(f"{BASE.replace('http', 'ws')}/ws/terminal/{pid}", additional_headers={"Cookie": cookie, "Origin": BASE}) as ws:
             await ws.send(json.dumps({"type": "takeover", "on": True}))
             await ws.send(json.dumps({"type": "input", "data": cmd}))
             out, t0 = "", time.time()

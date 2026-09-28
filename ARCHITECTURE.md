@@ -3,12 +3,13 @@
 ```
 ┌──────────────────────────── one container, one port (8080) ────────────────────────────┐
 │                                                                                         │
-│  React SPA (Vite build, served statically by FastAPI)                                   │
+│  React SPA (Vite + HeroUI v3 + Phosphor icons, served statically by FastAPI)            │
 │    SSE  /api/runs/{id}/events  (typed, persisted, replayable, Last-Event-ID resume)     │
 │    WS   /ws/terminal/{project}  (xterm.js mirror, optional "take over")                 │
 │                                                                                         │
 │  FastAPI backend  (user: studio — holds API keys in memory only)                        │
-│   ├─ settings / keys   (localStorage → per-request headers; optional Fernet-at-rest)    │
+│   ├─ auth              (username/password, scrypt, HttpOnly session cookie, per-user    │
+│   │                     projects; keys saved per account with Fernet, or per-browser)   │
 │   ├─ projects/assets   (magic-byte validation, SVG sanitizer, automatic analysis)       │
 │   ├─ EventBus          (SQLite events table, monotonically increasing ids, fan-out)     │
 │   ├─ Agent loop        (openai SDK, any OpenAI-compatible base_url, streamed tool calls)│
@@ -24,8 +25,8 @@
 │   templates/{fan_unfold, exploded_assembly, stroke_reveal, voiced_explainer}            │
 │   CLI: python -m luma_engine {preview,render,audio,encode,qc,demo}                      │
 │                                                                                         │
-│  /data  (bind mount)  studio.db · secrets/ · projects/<id>/{assets,work,renders,audio,  │
-│                       outputs}                                                          │
+│  /data  (bind mount)  studio.db (users, sessions, projects, events) · secrets/          │
+│                       projects/<id>/{assets,work,renders,audio,outputs}                 │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -47,5 +48,8 @@
   defence in depth.
 * **Long work is detached.** Renders are `setsid` subprocesses tracked by PID; tool
   calls wait with a cap and otherwise return a job handle that can be polled/killed.
+* **Accounts, not per-browser state.** Projects belong to a user; sign in from any
+  browser and everything (projects, runs, renders, saved keys) is there. Sessions are
+  random tokens stored hashed in SQLite; passwords are scrypt hashes.
 * **Everything is an event.** Every UI update is a persisted, typed event, so reloading
   the page replays the full history and then continues live.

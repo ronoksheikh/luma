@@ -1,75 +1,112 @@
 @import "tailwindcss";
-@import "@fontsource-variable/inter";
-@import "@fontsource-variable/jetbrains-mono";
+@import "@heroui/styles";
+@import "@fontsource-variable/inter/opsz.css";
+@import "@fontsource-variable/geist-mono";
 @import "@xterm/xterm/css/xterm.css";
 
-@theme {
+/*
+ * Lumademy brand system (see Brand Guidelines) mapped onto HeroUI's theme variables.
+ *   Lumademy Blue #2970EC · Sky Blue #5DAEFF · Royal Blue #1557D1 · Deep Blue #07358F
+ *   Night #071738 (dark surfaces only) · White #FFFFFF · Off White #EFF5FF
+ * Navy (#10234B) is intentionally not used; text is a neutral near-black.
+ */
+@layer base {
+  :root,
+  .light,
+  [data-theme="light"] {
+    --brand-sky: #5daeff;
+    --brand-blue: #2970ec;
+    --brand-royal: #1557d1;
+    --brand-deep: #07358f;
+    --brand-night: #071738;
+    --brand-offwhite: #eff5ff;
+    --brand-gradient: linear-gradient(135deg, #5daeff 0%, #2970ec 37%, #1557d1 72%, #07358f 100%);
+    --brand-icon-gradient: linear-gradient(135deg, #70bfff 0%, #378af4 42%, #1552c5 100%);
+
+    --radius: 0.625rem;
+    --field-radius: 0.625rem;
+
+    --accent: #2970ec;
+    --accent-foreground: #ffffff;
+    --focus: #2970ec;
+
+    --background: #f5f8fe;
+    --foreground: #111318;
+    --surface: #ffffff;
+    --surface-foreground: #111318;
+    --surface-secondary: #f3f6fc;
+    --surface-tertiary: #eaf0fb;
+    --overlay: #ffffff;
+    --muted: #6b7280;
+    --default: #eff5ff;
+    --default-foreground: #111318;
+    --field-background: #ffffff;
+    --field-foreground: #111318;
+    --field-border: #e3e8f2;
+    --field-border-width: 1px;
+    --border: #e6ebf4;
+    --separator: #edf1f8;
+    --link: #1557d1;
+    --backdrop: rgba(17, 19, 24, 0.28);
+  }
+}
+
+@theme inline {
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-brand: var(--brand-blue);
+  --color-brand-sky: var(--brand-sky);
+  --color-brand-royal: var(--brand-royal);
+  --color-brand-deep: var(--brand-deep);
+  --color-night: var(--brand-night);
+  --color-offwhite: var(--brand-offwhite);
+  --animate-breathe: breathe 1.8s ease-in-out infinite;
 
-  --color-bg: #0a0b0f;
-  --color-panel: #101218;
-  --color-panel-2: #151821;
-  --color-raised: #1b1f2a;
-  --color-line: #232836;
-  --color-line-strong: #2f3547;
-  --color-fg: #e8eaf0;
-  --color-muted: #8b93a7;
-  --color-faint: #5d6478;
-  --color-accent: #ffb547;
-  --color-accent-2: #ff6b5a;
-  --color-ok: #3ddc97;
-  --color-warn: #ffc857;
-  --color-bad: #ff5d6c;
-  --color-info: #6aa7ff;
-
-  --radius-xl: 14px;
-  --animate-pulse-soft: pulse-soft 1.6s ease-in-out infinite;
-
-  @keyframes pulse-soft {
+  @keyframes breathe {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.45; }
+    50% { opacity: 0.35; }
   }
 }
 
 @layer base {
   html, body, #root { height: 100%; }
   body {
-    @apply bg-bg text-fg font-sans antialiased;
-    font-feature-settings: "cv11", "ss01";
+    @apply bg-background text-foreground font-sans antialiased;
+    font-optical-sizing: auto;
+    font-feature-settings: "cv05", "cv08", "ss03";
   }
-  ::selection { background: color-mix(in oklab, var(--color-accent) 35%, transparent); }
-  * { scrollbar-width: thin; scrollbar-color: var(--color-line-strong) transparent; }
-  :focus-visible { outline: 2px solid color-mix(in oklab, var(--color-accent) 70%, transparent); outline-offset: 2px; }
+  h1, h2, h3, .display { letter-spacing: -0.02em; font-weight: 550; }
+  ::selection { background: color-mix(in oklab, var(--brand-blue) 22%, transparent); }
 }
 
 @layer components {
-  .glow-text {
-    background: linear-gradient(100deg, var(--color-accent-2), var(--color-accent));
+  .brand-text {
+    background: var(--brand-gradient);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
-  .panel { @apply bg-panel border border-line rounded-xl; }
-  .kbd { @apply font-mono text-[10px] px-1.5 py-0.5 rounded border border-line-strong bg-raised text-muted; }
-  .md p { @apply my-2 leading-relaxed; }
+  .hairline { @apply border border-border; }
+  .md { @apply text-[14px] leading-[1.65] text-foreground; }
+  .md p { @apply my-2; }
+  .md p:first-child { @apply mt-0; }
   .md ul { @apply my-2 list-disc pl-5 space-y-1; }
   .md ol { @apply my-2 list-decimal pl-5 space-y-1; }
-  .md code { @apply font-mono text-[0.85em] px-1 py-0.5 rounded bg-raised text-accent/90; }
-  .md pre { @apply my-2 p-3 rounded-lg bg-bg border border-line overflow-x-auto text-xs; }
-  .md pre code { @apply p-0 bg-transparent text-fg; }
-  .md h1, .md h2, .md h3 { @apply font-semibold mt-3 mb-1; }
-  .md a { @apply text-accent underline underline-offset-2; }
-  .md strong { @apply text-fg font-semibold; }
-  .md table { @apply my-2 text-xs border-collapse; }
-  .md th, .md td { @apply border border-line px-2 py-1; }
+  .md code { @apply font-mono text-[12.5px] px-1 py-px rounded-md bg-surface-tertiary; }
+  .md pre { @apply my-3 p-3 rounded-xl bg-surface-secondary overflow-x-auto text-[12px]; }
+  .md pre code { @apply p-0 bg-transparent; }
+  .md h1, .md h2, .md h3 { @apply font-semibold mt-4 mb-1.5; }
+  .md a { @apply text-link underline underline-offset-2; }
+  .md table { @apply my-2 text-xs; }
+  .md th, .md td { @apply border border-border px-2 py-1; }
   .checker {
-    background-image: linear-gradient(45deg, #1b1f2a 25%, transparent 25%), linear-gradient(-45deg, #1b1f2a 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, #1b1f2a 75%), linear-gradient(-45deg, transparent 75%, #1b1f2a 75%);
-    background-size: 12px 12px;
-    background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+    background-color: #fff;
+    background-image: linear-gradient(45deg, #eef2f9 25%, transparent 25%), linear-gradient(-45deg, #eef2f9 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #eef2f9 75%), linear-gradient(-45deg, transparent 75%, #eef2f9 75%);
+    background-size: 14px 14px;
+    background-position: 0 0, 0 7px, 7px -7px, -7px 0;
   }
 }
 
-.xterm { padding: 8px; }
+.xterm { padding: 10px 12px; height: 100%; }
 .xterm .xterm-viewport { background-color: transparent !important; }

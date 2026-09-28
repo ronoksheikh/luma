@@ -1,4 +1,4 @@
-"""Request hardening for an app that has no login.
+"""Request hardening (in addition to the per-user session cookie in ``auth.py``).
 
 * Host allow-list (blocks DNS-rebinding attacks against 127.0.0.1).
 * State-changing API calls must carry ``X-Luma-Client`` — a non-simple header, so a

@@ -7,16 +7,17 @@ import shutil
 import time
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 
 from . import assets as A
+from .auth import current_user, require_user
 from . import db
 from .config import DEFAULT_PROJECT_SETTINGS, FPS_CHOICES, PROJECT_SUBDIRS, RESOLUTIONS, config
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_user)])
 
 
 # ======================================================================================
@@ -55,6 +56,8 @@ def ensure_workspace(project_id: str) -> Path:
 
 def safe_path(project_id: str, rel: str) -> Path:
     """Resolve ``rel`` inside the project dir; reject traversal and escaping symlinks."""
+    if current_user.get() is not None:
+        get_project(project_id)  # ownership
     base = project_dir(project_id).resolve()
     if not base.exists():
         raise HTTPException(404, "project not found")
@@ -71,9 +74,11 @@ def file_url(project_id: str, rel: str) -> str:
 
 
 def get_project(project_id: str) -> db.Project:
+    """The project, if it belongs to the signed-in user (404 otherwise)."""
+    uid = current_user.get()
     with db.session() as s:
         p = s.get(db.Project, project_id)
-        if p is None:
+        if p is None or (uid is not None and p.owner_id != uid):
             raise HTTPException(404, "project not found")
         return p
 
@@ -156,7 +161,7 @@ class ProjectPatch(BaseModel):
 @router.get("/api/projects")
 def list_projects():
     with db.session() as s:
-        ps = list(s.scalars(select(db.Project).order_by(db.Project.updated_at.desc())))
+        ps = list(s.scalars(select(db.Project).where(db.Project.owner_id == current_user.get()).order_by(db.Project.updated_at.desc())))
     return [project_json(p) for p in ps]
 
 
@@ -165,7 +170,7 @@ def create_project(body: ProjectIn):
     st = body.settings or ProjectSettings()
     st.check_resolution()
     with db.session() as s:
-        p = db.Project(name=body.name.strip(), brief=body.brief, settings=st.model_dump())
+        p = db.Project(name=body.name.strip(), brief=body.brief, settings=st.model_dump(), owner_id=current_user.get())
         s.add(p)
     ensure_workspace(p.id)
     return project_json(p)
@@ -197,7 +202,7 @@ def update_project(project_id: str, body: ProjectPatch):
 def duplicate_project(project_id: str):
     src = get_project(project_id)
     with db.session() as s:
-        p = db.Project(name=f"{src.name} (copy)", brief=src.brief, settings=dict(src.settings or {}))
+        p = db.Project(name=f"{src.name} (copy)", brief=src.brief, settings=dict(src.settings or {}), owner_id=src.owner_id)
         s.add(p)
         s.flush()
         new_id = p.id

@@ -53,12 +53,26 @@ def server():
     th.join(10)
 
 
-@pytest.fixture()
-def client(server):
+def login_client(server, username="tester", password="correct horse battery"):
     import httpx
 
-    with httpx.Client(base_url=server["url"], headers={"X-Luma-Client": "1"}, timeout=60) as c:
-        yield c
+    c = httpx.Client(base_url=server["url"], headers={"X-Luma-Client": "1"}, timeout=60)
+    r = c.post("/api/auth/login", json={"username": username, "password": password})
+    if r.status_code == 401:
+        r = c.post("/api/auth/signup", json={"username": username, "password": password})
+    assert r.status_code in (200, 201), r.text
+    return c
+
+
+@pytest.fixture()
+def client(server):
+    c = login_client(server)
+    yield c
+    c.close()
+
+
+def cookie_header(c) -> dict:
+    return {"Cookie": "; ".join(f"{k}={v}" for k, v in c.cookies.items())}
 
 
 @pytest.fixture()

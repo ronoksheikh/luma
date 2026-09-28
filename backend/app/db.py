@@ -27,9 +27,26 @@ class Setting(Base):
     value: Mapped[Any] = mapped_column(JSON, nullable=True)
 
 
+class User(Base):
+    __tablename__ = "users"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: new_id("u_"))
+    username: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(256))
+    created_at: Mapped[float] = mapped_column(Float, default=time.time)
+
+
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[float] = mapped_column(Float, default=time.time)
+    expires_at: Mapped[float] = mapped_column(Float)
+
+
 class Project(Base):
     __tablename__ = "projects"
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: new_id("p_"))
+    owner_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(200))
     brief: Mapped[str] = mapped_column(Text, default="")
     settings: Mapped[dict] = mapped_column(JSON, default=dict)
@@ -137,8 +154,20 @@ def init_db(url: str | None = None) -> None:
         cur.close()
 
     Base.metadata.create_all(_engine)
+    _migrate(_engine)
 
     _Session = sessionmaker(_engine, expire_on_commit=False)
+
+
+def _migrate(engine) -> None:
+    """Tiny forward-only migrations for databases created by older versions."""
+    from sqlalchemy import inspect, text
+
+    cols = {c["name"] for c in inspect(engine).get_columns("projects")}
+    with engine.begin() as conn:
+        if "owner_id" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN owner_id VARCHAR(32)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_projects_owner_id ON projects (owner_id)"))
 
 
 @contextmanager
