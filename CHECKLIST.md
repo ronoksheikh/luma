@@ -82,3 +82,13 @@ Legend: `[x]` done **and verified by running it**, `[~]` done with a caveat note
 - [x] gates in code (unless project Autopilot): 4K or long (estimated) final renders, ElevenLabs requests over N characters, continuing past the run's cost / time thresholds — expensive tools are refused until an approval newer than the last user instruction exists
 - [x] `notify` (notifications table, bell history REST, mark read) and `report_progress` (`progress_stage` events)
 - [x] budget: tokens, cost from provider-reported cost or OpenRouter pricing (captured when models are listed), `budget` event every step, cost/token caps stop runs gracefully (tests)
+
+## P2.4 — power tools
+- [x] `media_probe`, `extract_frames` (+ contact sheet), `make_gif_or_webp` (palette GIF / animated WebP), `make_thumbnail`, `export_end_card` (rendered per size)
+- [x] `reframe_export`: end-card check per aspect (content inside the safe area) then one render job per aspect; test renders 16:9 + 9:16 and ffprobes the sizes
+- [x] `batch_render`: variants via `--set` overrides, queued jobs, presented as a `grid` artifact
+- [x] `vectorize_raster` (vtracer; IoU 0.95 on the sample, always flagged AUTO-TRACED), `extract_palette`, `detect_fonts` (exact PDF names; OCR guesses flagged as guesses, tesseract in the image), `install_font` (Google Fonts repo or official URL, licence recorded; project fonts visible to the engine)
+- [x] `audio_mix` (side-chain ducking, −14 LUFS, −1 dBTP), `captions_build` (SRT, WebVTT, kinetic-caption spec)
+- [x] `render_queue_status` / `render_queue_cancel`, `budget_status`
+- [x] `web_fetch` / `web_search` only when the project enables web access; SSRF guard; results labelled UNTRUSTED and shown as source cards
+- [~] `install_font` by Google Fonts family and `web_search` against DuckDuckGo were tested against local stand-ins only (no internet in the test environment)

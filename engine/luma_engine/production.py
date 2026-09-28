@@ -291,6 +291,7 @@ def vectorize_raster(path: str, out_svg: str, mode: str = "color", filter_speckl
 
     src = Image.open(path).convert("RGBA")
     w, h = src.size
+    Path(out_svg).parent.mkdir(parents=True, exist_ok=True)
     max_side = 1600
     tmp_png = out_svg + ".src.png"
     im = src
