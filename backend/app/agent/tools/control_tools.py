@@ -11,17 +11,162 @@ OUTPUT_KINDS = {".mp4": "mp4", ".mov": "prores", ".png": "end_card", ".srt": "sr
 
 @tool(
     "ask_user",
-    "Pause and ask the user a question (use sparingly — only when a decision genuinely needs them, e.g. ambiguous brand direction). Returns their answer.",
-    {"question": {"type": "string"}, "options": {"type": "array", "items": {"type": "string"}, "maxItems": 6}},
+    """Pause and ask the user a question — only when a decision is genuinely theirs. Renders buttons/chips (`options`)
+    plus a text box (allow_free_text). multi_select lets them pick several. With timeout_s the run continues with
+    `default` (an option) when nobody answers. Returns their answer.""",
+    {"question": {"type": "string"}, "options": {"type": "array", "items": {"type": "string"}, "maxItems": 8},
+     "allow_free_text": {"type": "boolean", "default": True}, "multi_select": {"type": "boolean", "default": False},
+     "timeout_s": {"type": "number", "description": "seconds to wait before using `default`"}, "default": {"type": "string"}},
     ["question"],
 )
 async def ask_user(ctx: ToolContext, a: dict) -> ToolOutput:
     q = str(a.get("question") or "").strip()
     if not q:
         raise ToolError("question is empty")
-    opts = [str(o) for o in (a.get("options") or [])][:6]
-    ans = await ctx.runner.ask(ctx.run_id, q, opts, ctx.tool_call_id)
-    return ToolOutput(f"The user answered: {ans}")
+    opts = [str(o) for o in (a.get("options") or [])][:8]
+    free = bool(a.get("allow_free_text", True))
+    if not opts and not free:
+        raise ToolError("give options or allow free text")
+    timeout = float(a["timeout_s"]) if a.get("timeout_s") else None
+    default = None
+    if timeout:
+        d = a.get("default") or (opts[0] if opts else None)
+        if d is None:
+            raise ToolError("timeout_s needs a default answer")
+        default = {"selections": [d]} if opts else {"text": d}
+    payload = {"question": q, "options": opts, "allow_free_text": free, "multi_select": bool(a.get("multi_select"))}
+    ans = await ctx.runner.request_user(ctx.run_id, "ask", payload, ctx.tool_call_id, timeout, default)
+    sel = [str(x) for x in ans.get("selections") or []]
+    text = str(ans.get("text") or "").strip()
+    prefix = "No answer before the timeout; using the default: " if ans.get("timeout") else ""
+    if sel and len(sel) > 1:
+        body = f"The user selected: {', '.join(sel)}"
+    elif sel:
+        body = f"The user answered: {sel[0]}"
+    else:
+        body = f"The user answered: {text}"
+    if sel and text:
+        body += f"\nThey added: {text}"
+    return ToolOutput(prefix + body)
+
+
+@tool(
+    "request_approval",
+    """A formal sign-off gate with the drafts attached (artifact ids from present_*). REQUIRED before expensive steps —
+    a 4K or long final render, a long ElevenLabs generation, continuing past the run's cost/time thresholds — unless the
+    project is on Autopilot. The run pauses until the user chooses. Returns APPROVED or the requested changes.""",
+    {"title": {"type": "string"}, "summary": {"type": "string", "description": "what you are asking them to approve and what happens next (cost/time)"},
+     "artifacts": {"type": "array", "items": {"type": "string"}}, "choices": {"type": "array", "items": {"type": "string"}, "maxItems": 4}},
+    ["title", "summary"],
+)
+async def request_approval(ctx: ToolContext, a: dict) -> ToolOutput:
+    from ... import artifacts as A
+
+    arts = []
+    for aid in a.get("artifacts") or []:
+        try:
+            art = A.get(str(aid))
+        except A.ArtifactError:
+            raise ToolError(f"no artifact {aid} — present the drafts first (present_video/present_storyboard/…)") from None
+        if art["project_id"] != ctx.project_id:
+            raise ToolError(f"no artifact {aid}")
+        arts.append(art)
+    choices = [str(c) for c in (a.get("choices") or ["Approve", "Request changes"])][:4]
+    payload = {"title": str(a["title"])[:200], "summary": str(a["summary"])[:4000], "artifacts": arts, "choices": choices}
+    if ctx.settings.get("project", {}).get("autopilot"):
+        with_db = await _record_auto_approval(ctx, payload)
+        return ToolOutput(f"APPROVED automatically (project Autopilot is on). Request {with_db}.")
+    ans = await ctx.runner.request_user(ctx.run_id, "approval", payload, ctx.tool_call_id)
+    choice = ans.get("choice") or ""
+    note = str(ans.get("note") or ans.get("text") or "").strip()
+    if choice == choices[0]:
+        return ToolOutput(f"APPROVED by the user ({choice}).{(' Note: ' + note) if note else ''}")
+    if not choice and note:
+        return ToolOutput(f"NOT APPROVED — the user replied: {note}. Address it and ask again.")
+    return ToolOutput(f"NOT APPROVED — the user chose “{choice}”.{(' Requested changes: ' + note) if note else ''} Revise, present again and re-request approval.")
+
+
+async def _record_auto_approval(ctx: ToolContext, payload: dict) -> str:
+    import time
+
+    from ... import db
+    from ...events import bus
+
+    with db.session() as s:
+        q = db.UserRequest(run_id=ctx.run_id, kind="approval", payload=payload, tool_call_id=ctx.tool_call_id, status="answered",
+                           answer={"choice": payload["choices"][0], "auto": True}, answered_at=time.time())
+        s.add(q)
+        s.flush()
+        qid = q.id
+    bus.publish(ctx.run_id, "approval_request", {"request_id": qid, "tool_call_id": ctx.tool_call_id, "auto": True, **payload})
+    bus.publish(ctx.run_id, "approval_result", {"request_id": qid, "kind": "approval", "answer": {"choice": payload["choices"][0], "auto": True},
+                                                "status": "answered", "tool_call_id": ctx.tool_call_id})
+    return qid
+
+
+@tool(
+    "present_options",
+    """Offer directions to choose from ("here are 3 directions"), each with a label, description and optional
+    preview_artifact (an artifact id: storyboard still, voice preview, video). The run pauses; the pick is returned.""",
+    {"title": {"type": "string"}, "options": {"type": "array", "minItems": 2, "maxItems": 6, "items": {"type": "object", "properties": {
+        "label": {"type": "string"}, "description": {"type": "string"}, "preview_artifact": {"type": "string"}}, "required": ["label"]}}},
+    ["title", "options"],
+)
+async def present_options(ctx: ToolContext, a: dict) -> ToolOutput:
+    from ... import artifacts as A
+
+    opts = []
+    for o in a["options"][:6]:
+        prev = None
+        if o.get("preview_artifact"):
+            try:
+                prev = A.get(str(o["preview_artifact"]))
+            except A.ArtifactError:
+                raise ToolError(f"no artifact {o['preview_artifact']}") from None
+        opts.append({"label": str(o["label"])[:80], "description": str(o.get("description") or "")[:600], "preview": prev})
+    if len({o["label"] for o in opts}) != len(opts):
+        raise ToolError("option labels must be unique")
+    payload = {"title": str(a["title"])[:200], "options": opts}
+    ans = await ctx.runner.request_user(ctx.run_id, "options", payload, ctx.tool_call_id)
+    choice = ans.get("choice")
+    note = str(ans.get("note") or ans.get("text") or "").strip()
+    if choice:
+        return ToolOutput(f"The user picked “{choice}”.{(' Note: ' + note) if note else ''}")
+    return ToolOutput(f"The user did not pick an option and replied: {note}")
+
+
+@tool(
+    "notify",
+    "Toast + browser notification for the user (e.g. 'Final render done', 'Waiting for your approval').",
+    {"message": {"type": "string"}, "level": {"type": "string", "enum": ["info", "success", "warning", "error"], "default": "info"}},
+    ["message"],
+)
+async def notify(ctx: ToolContext, a: dict) -> ToolOutput:
+    from ... import db
+
+    msg = str(a["message"]).strip()[:500]
+    level = a.get("level") or "info"
+    if level not in ("info", "success", "warning", "error"):
+        raise ToolError("level must be info, success, warning or error")
+    with db.session() as s:
+        n = db.Notification(project_id=ctx.project_id, run_id=ctx.run_id, level=level, message=msg)
+        s.add(n)
+        s.flush()
+        nid = n.id
+    ctx.emit("notify", {"id": nid, "message": msg, "level": level})
+    return ToolOutput("notified")
+
+
+@tool(
+    "report_progress",
+    "Update the run's progress header (overall stage, percent, ETA) — separate from per-tool progress bars.",
+    {"stage": {"type": "string"}, "percent": {"type": "number"}, "eta_s": {"type": "number"}, "detail": {"type": "string"}},
+    ["stage", "percent"],
+)
+async def report_progress(ctx: ToolContext, a: dict) -> ToolOutput:
+    pct = max(0.0, min(100.0, float(a["percent"])))
+    ctx.emit("progress_stage", {"stage": str(a["stage"])[:80], "percent": pct, "eta_s": a.get("eta_s"), "detail": str(a.get("detail") or "")[:300]})
+    return ToolOutput(f"progress: {a['stage']} {pct:.0f}%")
 
 
 @tool(

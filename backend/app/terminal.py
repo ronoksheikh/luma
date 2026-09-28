@@ -76,6 +76,12 @@ def sandbox_env(workdir: str, extra: dict | None = None) -> dict:
               "SSL_CERT_FILE", "REQUESTS_CA_BUNDLE", "PIP_CERT", "NODE_EXTRA_CA_CERTS", "PLAYWRIGHT_BROWSERS_PATH"):
         if os.environ.get(k):
             env[k] = os.environ[k]
+    try:  # fonts installed into the project (install_font) are visible to the engine
+        rel = Path(workdir).resolve().relative_to(config.projects_dir.resolve())
+        fonts = str(config.projects_dir / rel.parts[0] / "fonts")
+        env["LUMA_FONT_DIRS"] = ":".join(x for x in (fonts, env.get("LUMA_FONT_DIRS", "")) if x)
+    except (ValueError, IndexError):
+        pass
     env.update(extra or {})
     return env
 

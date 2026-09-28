@@ -90,6 +90,8 @@ async def render_preview(ctx: ToolContext, a: dict) -> ToolOutput:
     if rc != 0 or not out.exists():
         raise ToolError(f"preview failed (exit {rc}):\n{truncate(text, ctx, 'preview')}")
     res = parse_json_tail(text) or {}
+    if res.get("seconds") and res.get("tiles"):  # seconds per tile at this scale → per full-size frame (for render estimates)
+        ctx.runner.render_rate[ctx.run_id] = float(res["seconds"]) / len(res["tiles"]) / max(scale * scale, 0.01)
     rel = ctx.rel(out)
     ctx.emit("image", {"path": rel, "url": ctx.url(rel), "label": f"Contact sheet {n}", "kind": "contact_sheet", "tiles": res.get("tiles")})
     msg = f"contact sheet: {rel} ({res.get('size')}, {res.get('seconds')}s) tiles: {json.dumps(res.get('tiles'))}"

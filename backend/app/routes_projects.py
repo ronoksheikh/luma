@@ -118,6 +118,7 @@ class ProjectSettings(BaseModel):
     approval_render_minutes: float = Field(10, ge=0, le=1440)  # estimated render time that needs sign-off
     approval_el_chars: int = Field(1500, ge=0, le=1_000_000)  # one ElevenLabs request above this needs sign-off
     approval_cost_usd: float = Field(2.0, ge=0, le=10000)  # run cost above this needs sign-off
+    approval_run_minutes: float = Field(30, ge=0, le=1440)  # continuing a run past this needs sign-off
     web_access: bool = False  # web_fetch / web_search tools
     subagents: bool = False  # spawn_subagent tool
     subagent_max_concurrency: int = Field(2, ge=1, le=6)

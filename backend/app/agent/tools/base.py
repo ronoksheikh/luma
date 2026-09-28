@@ -83,6 +83,7 @@ class Tool:
     parameters: dict
     handler: Callable[[ToolContext, dict], Awaitable[ToolOutput]]
     elevenlabs: bool = False
+    requires: str | None = None  # project setting that must be on (e.g. "web_access", "subagents")
 
     def schema(self) -> dict:
         return {"type": "function", "function": {"name": self.name, "description": self.description, "parameters": self.parameters}}
@@ -91,10 +92,11 @@ class Tool:
 REGISTRY: dict[str, Tool] = {}
 
 
-def tool(name: str, description: str, properties: dict, required: list[str] | None = None, elevenlabs: bool = False):
+def tool(name: str, description: str, properties: dict, required: list[str] | None = None, elevenlabs: bool = False,
+         requires: str | None = None):
     def deco(fn):
         REGISTRY[name] = Tool(name, description.strip(), {"type": "object", "properties": properties, "required": required or [],
-                                                           "additionalProperties": False}, fn, elevenlabs)
+                                                           "additionalProperties": False}, fn, elevenlabs, requires)
         return fn
 
     return deco

@@ -32,6 +32,10 @@ class RunManager:
         self.notes: dict[str, list[str]] = {}  # system notes for the agent (e.g. the user edited the plan)
         self.compact_requests: dict[str, str] = {}
         self._resuming: set[str] = set()
+        self.pending_request: dict[str, str] = {}
+        self.started_at: dict[str, float] = {}
+        self.render_rate: dict[str, float] = {}  # measured seconds per full-size frame (from previews)
+        self.crossed: dict[tuple, float] = {}  # when a run crossed its cost/time approval thresholds
 
     # -- state -----------------------------------------------------------------------------
     def create(self, project_id: str, kind: str = "agent", model: str = "") -> db.Run:
@@ -75,7 +79,7 @@ class RunManager:
         bus.publish(run_id, "user_message", {"text": text})
         fut = self.answers.get(run_id)
         if fut is not None and not fut.done():
-            fut.set_result(text)  # answer to ask_user
+            fut.set_result({"text": text, "via": "message"})  # a typed reply answers the pending question/approval
             return
         if self.is_active(run_id):
             self.inbox.setdefault(run_id, []).append(text)  # injected before the next model call
@@ -112,14 +116,57 @@ class RunManager:
             self.answers.pop(run_id, None)
 
     async def ask(self, run_id: str, question: str, options: list[str] | None, tool_call_id: str) -> str:
+        ans = await self.request_user(run_id, "ask", {"question": question, "options": options or [], "allow_free_text": True}, tool_call_id)
+        return ans.get("text") or ", ".join(ans.get("selections") or []) or ans.get("choice") or ""
+
+    EVENT_OF = {"ask": "ask_user", "approval": "approval_request", "options": "options_request"}
+
+    async def request_user(self, run_id: str, kind: str, payload: dict, tool_call_id: str, timeout_s: float | None = None,
+                           default: dict | None = None) -> dict:
+        """Pause the run until the user answers (buttons, chips or a typed message) or the timeout picks
+        `default`. The request is persisted, so it survives reloads and is visible after a restart."""
+        with db.session() as s:
+            q = db.UserRequest(run_id=run_id, kind=kind, payload=payload, tool_call_id=tool_call_id)
+            s.add(q)
+            s.flush()
+            qid = q.id
+        deadline = time.time() + timeout_s if timeout_s else None
+        bus.publish(run_id, self.EVENT_OF[kind], {"request_id": qid, "tool_call_id": tool_call_id, "timeout_s": timeout_s, "deadline": deadline,
+                                                  "default": default, **payload})
         fut = asyncio.get_running_loop().create_future()
         self.answers[run_id] = fut
-        self.set_status(run_id, "waiting_input", question=question, options=options or [], tool_call_id=tool_call_id)
+        self.pending_request[run_id] = qid
+        extra = {"question": payload.get("question") or payload.get("title"), "options": payload.get("options") if kind == "ask" else
+                 [o["label"] if isinstance(o, dict) else o for o in (payload.get("choices") or payload.get("options") or [])]}
+        self.set_status(run_id, "waiting_input", tool_call_id=tool_call_id, request_id=qid, request_kind=kind, **extra)
+        status = "answered"
         try:
-            return await fut
+            try:
+                ans = await (asyncio.wait_for(fut, timeout_s) if timeout_s else fut)
+            except asyncio.TimeoutError:
+                ans, status = {**(default or {}), "timeout": True}, "timeout"
+        except asyncio.CancelledError:
+            with db.session() as s:
+                row = s.get(db.UserRequest, qid)
+                row.status, row.answered_at = "cancelled", time.time()
+            raise
         finally:
             self.answers.pop(run_id, None)
-            self.set_status(run_id, "running")
+            self.pending_request.pop(run_id, None)
+        with db.session() as s:
+            row = s.get(db.UserRequest, qid)
+            row.status, row.answer, row.answered_at = status, ans, time.time()
+        bus.publish(run_id, "approval_result", {"request_id": qid, "kind": kind, "answer": ans, "status": status, "tool_call_id": tool_call_id})
+        self.set_status(run_id, "running")
+        return ans
+
+    def answer_request(self, run_id: str, request_id: str, answer: dict) -> None:
+        if self.pending_request.get(run_id) != request_id:
+            raise ValueError("that request is not waiting for an answer")
+        fut = self.answers.get(run_id)
+        if fut is None or fut.done():
+            raise ValueError("that request is not waiting for an answer")
+        fut.set_result(answer)
 
     def take_inbox(self, run_id: str) -> list[str]:
         return self.inbox.pop(run_id, [])

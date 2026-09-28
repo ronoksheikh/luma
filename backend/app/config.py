@@ -103,6 +103,7 @@ DEFAULT_PROJECT_SETTINGS = {
     "approval_render_minutes": 10,
     "approval_el_chars": 1500,
     "approval_cost_usd": 2.0,
+    "approval_run_minutes": 30,
     "web_access": False,
     "subagents": False,
     "subagent_max_concurrency": 2,

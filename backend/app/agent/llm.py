@@ -104,9 +104,26 @@ async def list_models(creds: Credentials) -> list[dict]:
         mods = arch.get("input_modalities")
         if isinstance(mods, list):
             item["vision"] = "image" in mods
+        pr = extra.get("pricing") or {}
+        try:
+            if pr.get("prompt") is not None and pr.get("completion") is not None:
+                item["pricing"] = {"prompt": float(pr["prompt"]), "completion": float(pr["completion"])}  # USD per token (OpenRouter)
+        except (TypeError, ValueError):
+            pass
         out.append(item)
     out.sort(key=lambda x: x["id"])
+    _remember_pricing(creds.llm_base_url, out)
     return out
+
+
+def _remember_pricing(base_url: str, models: list[dict]) -> None:
+    from .. import db
+
+    priced = {f"{base_url}|{m['id']}": m["pricing"] for m in models if m.get("pricing")}
+    if priced:
+        cur = db.get_setting("model_pricing") or {}
+        cur.update(priced)
+        db.set_setting("model_pricing", cur)
 
 
 def tiny_png(color=(220, 30, 30)) -> str:

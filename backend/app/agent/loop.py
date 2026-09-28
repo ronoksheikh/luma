@@ -17,6 +17,7 @@ from ..events import Coalescer, bus
 from ..routes_projects import project_dir
 from ..routes_settings import director_prompt, load_settings, model_caps
 from ..secrets_store import Credentials, redact
+from . import budget as B
 from . import context as C
 from .llm import describe_error, make_client, retryable, tools_unsupported, with_retries
 from .tools import available_tools
@@ -103,11 +104,12 @@ class AgentLoop:
         caps = model_caps(creds.llm_base_url, creds.llm_model)
         self.vision = bool(caps.get("vision"))
         self.client = make_client(creds)
-        self.tools = available_tools(el_enabled=creds.has_elevenlabs)
+        self.tools = available_tools(el_enabled=creds.has_elevenlabs, project_settings=self.settings["project"])
         self.coal = Coalescer(run_id)
         self.el_budget = ElBudget(run_id, self.settings.get("el_char_budget", 5000))
         self.include_usage = True
         self.turn = 0
+        self.pricing = B.pricing(creds.llm_base_url, creds.llm_model)
 
     # ------------------------------------------------------------------------------------
     def _run_row(self) -> db.Run:
@@ -134,7 +136,15 @@ class AgentLoop:
         R = self.runner
         R.set_status(self.run_id, "running")
         R.finished.pop(self.run_id, None)
+        R.started_at[self.run_id] = time.time()
         t_start = time.monotonic()
+        budget = self.budget_status()
+        bus.publish(self.run_id, "budget", budget)
+        stop = self._over_cap(budget)
+        if stop:
+            bus.publish(self.run_id, "error", {"code": "budget", "message": stop})
+            R.set_status(self.run_id, "stopped")
+            return
         wall = float(self.settings.get("wall_clock_minutes", 60)) * 60
         max_steps = int(self.settings.get("max_steps", 120))
         while True:
@@ -168,9 +178,17 @@ class AgentLoop:
                 if turn.usage:
                     r.prompt_tokens += int(turn.usage.get("prompt_tokens") or 0)
                     r.completion_tokens += int(turn.usage.get("completion_tokens") or 0)
+                    r.cost_usd = (r.cost_usd or 0.0) + B.step_cost(self.pricing, turn.usage)
                 usage = {"steps": r.steps, "prompt_tokens": r.prompt_tokens, "completion_tokens": r.completion_tokens, "el_chars": r.el_chars,
-                         "max_steps": max_steps}
+                         "max_steps": max_steps, "cost_usd": round(r.cost_usd or 0.0, 4)}
             bus.publish(self.run_id, "usage", usage)
+            budget = self.budget_status()
+            bus.publish(self.run_id, "budget", budget)
+            stop = self._over_cap(budget)
+            if stop:
+                bus.publish(self.run_id, "error", {"code": "budget", "message": stop})
+                R.set_status(self.run_id, "stopped")
+                return
             calls = [c for _, c in sorted(turn.calls.items())]
             for c in calls:
                 if not c.id:
@@ -294,6 +312,9 @@ class AgentLoop:
                 if getattr(chunk, "usage", None):
                     u = chunk.usage
                     turn.usage = {"prompt_tokens": u.prompt_tokens, "completion_tokens": u.completion_tokens}
+                    cost = (getattr(u, "model_extra", None) or {}).get("cost")
+                    if isinstance(cost, (int, float)):
+                        turn.usage["cost"] = float(cost)
                 if not chunk.choices:
                     continue
                 ch = chunk.choices[0]
@@ -343,6 +364,51 @@ class AgentLoop:
                     bus.publish(self.run_id, "tool_args_delta", {"id": c.id, "delta": c.args})
         return turn
 
+    def budget_status(self) -> dict:
+        return B.status(self._run_row(), self.settings, self.runner.started_at.get(self.run_id), self.creds.llm_base_url, self.creds.llm_model)
+
+    def _over_cap(self, b: dict) -> str | None:
+        if b["max_cost_usd"] and b["cost_usd"] >= b["max_cost_usd"]:
+            return (f"Stopped gracefully: the run reached its cost cap (${b['cost_usd']:.2f} of ${b['max_cost_usd']:.2f}, Settings → Limits). "
+                    "The workspace and plan are saved — raise the cap and send a message to continue.")
+        if b["max_tokens"] and b["tokens"] >= b["max_tokens"]:
+            return (f"Stopped gracefully: the run reached its token cap ({b['tokens']:,} of {b['max_tokens']:,}, Settings → Limits). "
+                    "Raise the cap and send a message to continue.")
+        return None
+
+    def _gate(self, name: str, args: dict) -> None:
+        """Expensive actions need the user's sign-off (request_approval) unless the project is on Autopilot."""
+        st = self.settings.get("project", {})
+        if st.get("autopilot"):
+            return
+        reasons: list[str] = []
+        since = B.last_user_message_at(self.run_id)
+        if name == "render_final":
+            if int(st.get("width", 0)) >= 3840:
+                reasons.append("a 4K final render")
+            est = B.estimate_render_minutes(self.settings, self.runner.render_rate.get(self.run_id))
+            if st.get("approval_render_minutes") and est > float(st["approval_render_minutes"]):
+                reasons.append(f"a final render estimated at ~{est:.0f} min (threshold {st['approval_render_minutes']} min)")
+        if name in B.EL_TOOLS:
+            n = len(str(args.get(B.EL_TOOLS[name]) or ""))
+            if st.get("approval_el_chars") and n > int(st["approval_el_chars"]):
+                reasons.append(f"an ElevenLabs request of {n} characters (threshold {st['approval_el_chars']})")
+        if name in B.EXPENSIVE or name in B.EL_TOOLS:
+            b = self.budget_status()
+            thr = float(st.get("approval_cost_usd") or 0)
+            if thr and b["cost_usd"] > thr:
+                crossed = self.runner.crossed.setdefault((self.run_id, "cost"), time.time())
+                since = max(since, crossed)
+                reasons.append(f"continuing past ${thr:.2f} of model cost (now ${b['cost_usd']:.2f})")
+            mins = float(st.get("approval_run_minutes") or 0)
+            if mins and b["elapsed_s"] > mins * 60:
+                crossed = self.runner.crossed.setdefault((self.run_id, "time"), time.time())
+                since = max(since, crossed)
+                reasons.append(f"continuing a run past {mins:.0f} minutes")
+        if reasons and not B.approved_since(self.run_id, since):
+            raise ToolError("Approval needed before " + "; ".join(reasons) + ". Present the drafts (present_video / present_storyboard …), "
+                            "then call request_approval with their artifact ids and a summary of the time/cost. (Project Autopilot skips this.)")
+
     def _check_plan_rule(self, name: str) -> None:
         """Long requests must start with a plan: after `plan_required_after_steps` model steps without todos,
         only planning / read-only tools are accepted."""
@@ -374,6 +440,7 @@ class AgentLoop:
             if missing:
                 raise ToolError(f"missing required argument(s) {missing} for {c.name}")
             self._check_plan_rule(c.name)
+            self._gate(c.name, args)
             out = await tool.handler(ctx, args)
         except ToolError as e:
             out = ToolOutput(f"Error: {e}", "error")
