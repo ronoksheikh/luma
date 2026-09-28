@@ -214,7 +214,13 @@ async def render_final(ctx: ToolContext, a: dict) -> ToolOutput:
     if man.get("qc"):
         rel = ctx.rel(Path(man["qc"]["path"]))
         ctx.emit("artifact", {"kind": "qc", "path": rel, "url": ctx.url(rel)})
-    return ToolOutput(json.dumps(_rel_manifest(ctx, man), indent=1), ui=ui)
+    from ...checkpoints import auto
+
+    cp = await asyncio.to_thread(auto, ctx.project_id, ctx.run_id, f"Render “{name}” finished", render=name)
+    res = _rel_manifest(ctx, man)
+    if cp:
+        res["checkpoint"] = cp["id"]
+    return ToolOutput(json.dumps(res, indent=1), ui=ui)
 
 
 def _rel_manifest(ctx: ToolContext, man: dict) -> dict:

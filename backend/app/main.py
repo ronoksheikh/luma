@@ -75,6 +75,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     app = FastAPI(title="Luma Studio", version="1.0.0", lifespan=lifespan, docs_url="/api/docs", openapi_url="/api/openapi.json")
     from .auth import router as auth_router
+    from .routes_long import router as long_router
     from .routes_projects import router as projects_router
     from .routes_runs import router as runs_router
     from .routes_runs import ws_router
@@ -89,6 +90,7 @@ def create_app() -> FastAPI:
     app.include_router(settings_router)
     app.include_router(projects_router)
     app.include_router(runs_router)
+    app.include_router(long_router)
 
     static = Path(config.static_dir)
 

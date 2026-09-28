@@ -18,6 +18,7 @@ apt-get install -y --no-install-recommends \
   fontconfig fonts-dejavu-core fonts-noto-core fonts-noto-cjk fonts-noto-color-emoji \
   libegl1 libgl1 libgles2 libfontconfig1 libfreetype6 libglib2.0-0 \
   libcairo2 libsndfile1 \
+  tesseract-ocr \
   less nano jq
 update-ca-certificates || true
 rm -rf /var/lib/apt/lists/*

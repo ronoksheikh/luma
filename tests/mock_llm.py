@@ -36,6 +36,8 @@ def make_app(script: list[dict], state: dict | None = None) -> FastAPI:
             turn = {"text": "(script exhausted)"}
         else:
             turn = state["script"].pop(0)
+            if callable(turn):  # dynamic turns see the request (e.g. to read ids from tool results)
+                turn = turn(body)
         if turn.get("status"):
             return JSONResponse({"error": {"message": turn.get("error", "scripted error"), "type": "test"}}, status_code=turn["status"])
         if turn.get("delay"):

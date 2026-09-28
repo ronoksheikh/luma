@@ -1,8 +1,8 @@
 """Typed, persisted, replayable run events with live fan-out (SSE).
 
-Event types: text_delta, tool_call_start, tool_args_delta, tool_output_delta,
-tool_result, image, audio, progress, artifact, usage, error, run_status,
-user_message, job.  IDs are the SQLite autoincrement primary key, so they are
+Event types: see ``EVENT_TYPES`` (streaming, tools, media, run lifecycle, plus the
+long-job types: plan, memory, checkpoints, artifacts/presentations, user requests,
+notifications, stages, budget, sub-agents, compaction).  IDs are the SQLite autoincrement primary key, so they are
 monotonically increasing across the whole database; clients resume with
 ``Last-Event-ID``.
 """
@@ -21,6 +21,10 @@ from .secrets_store import redact_obj
 EVENT_TYPES = {
     "text_delta", "tool_call_start", "tool_args_delta", "tool_output_delta", "tool_result", "image", "audio",
     "progress", "artifact", "usage", "error", "run_status", "user_message", "job", "retry", "context",
+    # long jobs, presentation and collaboration
+    "todo_update", "plan_revision", "memory_update", "checkpoint", "present", "ask_user", "approval_request",
+    "approval_result", "options_request", "notify", "progress_stage", "budget", "subagent_start", "subagent_end",
+    "compaction", "system_note",
 }
 
 

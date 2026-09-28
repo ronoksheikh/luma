@@ -126,7 +126,8 @@ class AgentLoop:
         return f"available ({', '.join(on) or 'untested'}); remaining character budget this run: {self.el_budget.remaining()}"
 
     def system_prompt(self) -> str:
-        return director_prompt() + "\n\n" + C.pinned_facts(self.project_id, self.pdir, self._el_status(), self.vision)
+        return director_prompt() + "\n\n" + C.pinned_facts(self.project_id, self.pdir, self._el_status(), self.vision) + \
+            C.pinned_long_job(self.run_id, self.project_id, self.pdir)
 
     # ------------------------------------------------------------------------------------
     async def run(self) -> None:
@@ -148,6 +149,8 @@ class AgentLoop:
                 return
             for text in R.take_inbox(self.run_id):
                 self._persist({"role": "user", "content": f"[User message while you were working]\n{text}"})
+            for note in R.take_notes(self.run_id):
+                self._persist({"role": "user", "content": f"[System note]\n{note}"})
             messages = await self._build_messages()
             try:
                 turn = await self._stream(messages)
@@ -217,16 +220,20 @@ class AgentLoop:
 
         msgs = assemble(history)
         est = C.estimate_tokens([{**m, "content": m["content"] if isinstance(m.get("content"), str) else "x" * 3000} for m in msgs])
-        if est > 0.8 * budget:
-            old, recent = C.split_for_summary(history)
+        forced = self.runner.compact_requests.pop(self.run_id, None)
+        if est > C.COMPACT_AT * budget or forced:
+            old, recent = C.split_for_summary(history, keep_last=6 if forced else 14)
             if old:
                 summary = await self._summarize(old, summary)
                 db.set_setting(f"summary:{self.run_id}", summary)
                 with db.session() as s:
                     for mid, _ in old:
                         s.get(db.Message, mid).archived = 1
-                bus.publish(self.run_id, "context", {"summarized_messages": len(old), "tokens_before": est})
                 msgs = assemble(recent)
+                after = C.estimate_tokens([{**m, "content": m["content"] if isinstance(m.get("content"), str) else "x" * 3000} for m in msgs])
+                bus.publish(self.run_id, "compaction", {"summarized_messages": len(old), "tokens_before": est, "tokens_after": after,
+                                                        "reason": forced or f"auto at {int(C.COMPACT_AT * 100)}% of the context budget",
+                                                        "kept": C.PINNED_KINDS})
         return msgs
 
     async def _summarize(self, old: list[tuple[int, dict]], prev: str | None) -> str:
@@ -336,6 +343,19 @@ class AgentLoop:
                     bus.publish(self.run_id, "tool_args_delta", {"id": c.id, "delta": c.args})
         return turn
 
+    def _check_plan_rule(self, name: str) -> None:
+        """Long requests must start with a plan: after `plan_required_after_steps` model steps without todos,
+        only planning / read-only tools are accepted."""
+        from .. import plan
+
+        limit = int(self.settings.get("plan_required_after_steps", 5) or 0)
+        if not limit or name in PLAN_EXEMPT:
+            return
+        if self._run_row().steps <= limit or plan.todos(self.run_id):
+            return
+        raise ToolError(f"Plan first: this request is taking more than {limit} steps and there is no plan. Call todo_write with phases, "
+                        f"tasks and acceptance criteria, then continue.")
+
     # ------------------------------------------------------------------------------------
     async def _exec(self, c: _Call) -> ToolOutput:
         t0 = time.monotonic()
@@ -353,6 +373,7 @@ class AgentLoop:
             missing = [k for k in tool.parameters.get("required", []) if k not in args]
             if missing:
                 raise ToolError(f"missing required argument(s) {missing} for {c.name}")
+            self._check_plan_rule(c.name)
             out = await tool.handler(ctx, args)
         except ToolError as e:
             out = ToolOutput(f"Error: {e}", "error")
@@ -367,6 +388,11 @@ class AgentLoop:
         bus.publish(self.run_id, "tool_result", {"id": c.id, "name": c.name, "status": out.status, "seconds": round(time.monotonic() - t0, 2),
                                                  "output": out.content[:20000], **({"ui": out.ui} if out.ui else {})})
         return out
+
+
+PLAN_EXEMPT = {"todo_write", "todo_add", "todo_list", "ask_user", "list_files", "read_file", "inspect_asset", "view_image", "memory_read",
+               "memory_search", "memory_write", "notes_append", "notes_read", "checkpoint_list", "budget_status", "context_compact",
+               "media_probe", "notify", "report_progress", "finish"}
 
 
 def redact_msg(msg: dict) -> dict:

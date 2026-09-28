@@ -29,6 +29,9 @@ class RunManager:
         self.inbox: dict[str, list[str]] = {}
         self.answers: dict[str, asyncio.Future] = {}
         self.finished: dict[str, dict] = {}
+        self.notes: dict[str, list[str]] = {}  # system notes for the agent (e.g. the user edited the plan)
+        self.compact_requests: dict[str, str] = {}
+        self._resuming: set[str] = set()
 
     # -- state -----------------------------------------------------------------------------
     def create(self, project_id: str, kind: str = "agent", model: str = "") -> db.Run:
@@ -121,6 +124,113 @@ class RunManager:
     def take_inbox(self, run_id: str) -> list[str]:
         return self.inbox.pop(run_id, [])
 
+    def take_notes(self, run_id: str) -> list[str]:
+        return self.notes.pop(run_id, [])
+
+    def system_note(self, run_id: str, text: str) -> None:
+        """Tell the agent something at its next step (plan edits, memory edits, restores). If the
+        run is idle the note waits in its history for the next activation."""
+        bus.publish(run_id, "system_note", {"text": text})
+        if self.is_active(run_id):
+            self.notes.setdefault(run_id, []).append(text)
+        else:
+            with db.session() as s:
+                s.add(db.Message(run_id=run_id, role="user", content={"role": "user", "content": f"[System note]\n{text}"}))
+
+    # -- resume after a crash / restart ----------------------------------------------------
+    RESUMABLE = ("interrupted", "failed", "stopped", "cancelled")
+
+    async def resume(self, run_id: str, creds: Credentials | None) -> dict:
+        """Continue an interrupted run: close tool calls that never returned, re-attach to jobs that
+        are still alive, re-queue resumable renders that died with the old process, cancel stale user
+        requests, then restart the loop with a note describing all of it (the plan, memory, notes and
+        the full persisted conversation are rebuilt from the database)."""
+        from .. import plan
+
+        run = self.get(run_id)
+        if run is None:
+            raise KeyError(run_id)
+        if self.is_active(run_id):
+            raise ValueError("run is already active")
+        if run.status not in self.RESUMABLE:
+            raise ValueError(f"run is {run.status}; only interrupted/stopped/failed/cancelled runs can be resumed")
+        if run.kind != "demo":
+            if creds is not None and creds.has_llm:
+                self.creds[run_id] = creds
+            if run_id not in self.creds:
+                raise ValueError("No LLM configured: add an API key, base URL and model in Settings.")
+        closed = self._close_dangling_calls(run_id)
+        with db.session() as s:
+            stale = list(s.scalars(select(db.UserRequest).where(db.UserRequest.run_id == run_id, db.UserRequest.status == "pending")))
+            for q in stale:
+                q.status, q.answered_at = "cancelled", time.time()
+            stale_titles = [q.payload.get("title") or q.payload.get("question") for q in stale]
+        alive, requeued = [], []
+        for j in ([] if run.kind == "demo" else jobs.list(run.project_id, run_id)):
+            if j["status"] == "running":
+                alive.append(j["name"])
+            elif j["status"] == "lost" and _resumable_job(j["command"]):
+                newer = jobs.get(run.project_id, j["name"])
+                if newer and newer.id != j["id"]:
+                    continue
+                tcid = f"resume_{j['id']}"
+                bus.publish(run_id, "tool_call_start", {"id": tcid, "name": "render_final", "index": 0, "resumed": True})
+                bus.publish(run_id, "tool_args_delta", {"id": tcid, "delta": json.dumps({"resumed_job": j["name"]})})
+                nj = await asyncio.to_thread(jobs.spawn, run.project_id, j["name"], j["command"], run_id, None, tcid)
+                requeued.append(j["name"])
+                asyncio.create_task(self._watch_job(run_id, nj["id"], tcid))
+        if run.kind == "demo":
+            self._resuming.add(run_id)
+            bus.publish(run_id, "system_note", {"text": "Demo resumed: finished frames are kept and the render continues.", "kind": "resume"})
+            self.start(run_id)
+            return {"resumed": run_id, "jobs_alive": alive, "jobs_requeued": requeued}
+        prog = plan.progress(run_id)
+        note = ["The run was interrupted (server/container restart) and has been RESUMED. Your context was rebuilt from the "
+                "persisted conversation, plan, memory and notes."]
+        if closed:
+            note.append(f"Tool calls that never returned (treat their results as unknown and verify on disk): {', '.join(closed)}.")
+        if alive:
+            note.append(f"Jobs still running and re-attached: {', '.join(alive)} — poll them with terminal_poll.")
+        if requeued:
+            note.append(f"Renders re-queued (they resume and skip finished frames): {', '.join(requeued)} — poll with terminal_poll.")
+        if stale_titles:
+            note.append(f"These questions/approvals were pending and are cancelled — ask again if still needed: {'; '.join(map(str, stale_titles))}.")
+        if prog["total"]:
+            cur = prog["current"]["title"] if prog["current"] else "none"
+            note.append(f"Plan: {prog['done']}/{prog['total']} done, in progress: {cur}. Re-read the plan and continue.")
+        with db.session() as s:
+            s.add(db.Message(run_id=run_id, role="user", content={"role": "user", "content": "[System note]\n" + "\n".join(note)}))
+        bus.publish(run_id, "system_note", {"text": " ".join(note), "kind": "resume"})
+        self.start(run_id)
+        return {"resumed": run_id, "closed_calls": closed, "jobs_alive": alive, "jobs_requeued": requeued, "cancelled_requests": len(stale_titles)}
+
+    def _close_dangling_calls(self, run_id: str) -> list[str]:
+        """Every assistant tool call needs a tool result before the conversation can continue."""
+        with db.session() as s:
+            rows = list(s.scalars(select(db.Message).where(db.Message.run_id == run_id).order_by(db.Message.id)))
+        answered = {r.content.get("tool_call_id") for r in rows if r.role == "tool"}
+        closed = []
+        for r in rows:
+            for tc in r.content.get("tool_calls") or []:
+                if tc["id"] not in answered:
+                    closed.append(f"{tc['function']['name']} ({tc['id']})")
+                    with db.session() as s:
+                        s.add(db.Message(run_id=run_id, role="tool", content={"role": "tool", "tool_call_id": tc["id"],
+                                         "content": "Error: interrupted — the server restarted while this tool was running; its result is unknown."}))
+                    bus.publish(run_id, "tool_result", {"id": tc["id"], "name": tc["function"]["name"], "status": "cancelled",
+                                                        "output": "interrupted by a server restart"})
+        return closed
+
+    async def _watch_job(self, run_id: str, job_id: str, tcid: str) -> None:
+        t0 = time.time()
+        res = await jobs.wait(job_id, 24 * 3600)
+        bus.publish(run_id, "tool_result", {"id": tcid, "name": "render_final", "status": "success" if res["status"] == "done" else "error",
+                                            "seconds": round(time.time() - t0, 1), "output": f"resumed job {res['name']} {res['status']}"})
+        if res["status"] == "done":
+            from .. import checkpoints
+
+            await asyncio.to_thread(checkpoints.auto, res["project_id"], run_id, f"Render {res['name']} finished (resumed)")
+
     async def cancel(self, run_id: str) -> dict:
         """Stop everything: LLM stream + ElevenLabs requests (task cancel), terminal
         command (Ctrl-C) and spawned jobs (process-group kill)."""
@@ -168,8 +278,9 @@ class RunManager:
                                                     "no LLM and no API keys involved. This proves the engine, audio, encoder and QC work.\n"})
         out_rel = "renders/demo"
         out_dir = pdir / out_rel
-        if out_dir.exists():
+        if out_dir.exists() and run_id not in self._resuming:
             shutil.rmtree(out_dir, ignore_errors=True)
+        self._resuming.discard(run_id)
         s = db.get_setting("demo_overrides") or {}  # tests use a smaller render
         width, height = int(s.get("width", 1920)), int(s.get("height", 1080))
         fps, duration = float(s.get("fps", 60)), float(s.get("duration", 5.0))
@@ -228,7 +339,15 @@ class RunManager:
         summary = (f"Demo complete: {man['frames']['frames']} frames at {fps:g} fps ({duration:g} s), "
                    f"QC {'passed' if qc.get('pass') else 'FAILED: ' + ', '.join(qc.get('failed', []))}.")
         bus.publish(run_id, "text_delta", {"delta": "\n" + summary})
+        from .. import checkpoints
+
+        await asyncio.to_thread(checkpoints.auto, pid, run_id, "Demo render finished")
         self.set_status(run_id, "completed", summary=summary, outputs=outputs)
+
+
+def _resumable_job(command: str) -> bool:
+    """Renders resume (existing frames are skipped), so they can simply be started again."""
+    return "luma_engine pipeline" in command or "luma_engine render" in command or "luma_engine demo" in command
 
 
 runs = RunManager()

@@ -54,3 +54,19 @@ Legend: `[x]` done **and verified by running it**, `[~]` done with a caveat note
 - [x] e2e test against the container (health, login required, demo MP4 via ffprobe, QC, sandbox isolation, terminal WebSocket)
 - [x] Playwright UI smoke test (sign-up, demo, upload, terminal, settings, new-browser sign-in, mobile)
 - [x] README, ARCHITECTURE, ENGINE_NOTES, LICENSE (MIT)
+
+---
+
+# Phase 2 — long-horizon planning, presentation & power tools
+
+## P2.1 — todos, memory, checkpoints, resume, compaction
+- [x] Alembic migrations (`backend/app/migrations`: 0001 baseline, 0002 long jobs); pre-Alembic databases are stamped and upgraded in place (test with a 1.0-era DB)
+- [x] `todos` + `plan_revisions`; `todo_write` / `todo_update` / `todo_add` / `todo_list`; nesting, priorities, acceptance criteria, evidence
+- [x] rules enforced in code: one in-progress item, `done` needs evidence (paths/artifact ids/JSON) or a justification, `skipped` needs a reason, re-planning needs a reason and keeps a revision, phases derive status
+- [x] plan-first rule: after `plan_required_after_steps` (default 5) model steps without a plan only planning/read-only tools run
+- [x] plan pinned in the system prompt (survives compaction); user edits (add/edit/skip/reorder via REST) reach the agent as a system note
+- [x] project memory (`memory_write/read/search`, REST CRUD) pinned into every run of the project
+- [x] scratchpad (`notes_append/read`), tail pinned into context
+- [x] checkpoints with git outside the workspace (`/data/git/<project>`), state.json (brief, settings, plan); auto after renders; restore makes a safety checkpoint first; REST + tools
+- [x] resume: dangling tool calls closed, live jobs re-attached, lost renders re-queued (resume skips finished frames), stale requests cancelled, a system note explains it — tested with a simulated restart mid-render
+- [x] `context_compact` + automatic compaction at 75 %; structured digest; pinned plan/memory/settings/brand/events/notes/user requests never dropped (test)

@@ -82,6 +82,9 @@ class Run(Base):
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     outputs: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    parent_run_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)  # sub-agent runs
+    cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    limits: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # sub-agent budget / allowed tools
     created_at: Mapped[float] = mapped_column(Float, default=time.time)
     updated_at: Mapped[float] = mapped_column(Float, default=time.time)
 
@@ -124,6 +127,101 @@ class Job(Base):
     finished_at: Mapped[float | None] = mapped_column(Float, nullable=True)
 
 
+class Todo(Base):
+    __tablename__ = "todos"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: new_id("t_"))
+    run_id: Mapped[str] = mapped_column(String(32), index=True)
+    project_id: Mapped[str] = mapped_column(String(32), index=True)
+    parent_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    title: Mapped[str] = mapped_column(String(300))
+    detail: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(16), default="pending")  # pending in_progress blocked done skipped failed
+    priority: Mapped[str] = mapped_column(String(8), default="medium")  # high medium low
+    order: Mapped[int] = mapped_column(Integer, default=0)
+    acceptance_criteria: Mapped[str] = mapped_column(Text, default="")
+    evidence: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[float | None] = mapped_column(Float, nullable=True)
+    completed_at: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[float] = mapped_column(Float, default=time.time)
+    updated_at: Mapped[float] = mapped_column(Float, default=time.time)
+
+
+class PlanRevision(Base):
+    __tablename__ = "plan_revisions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id: Mapped[str] = mapped_column(String(32), index=True)
+    revision: Mapped[int] = mapped_column(Integer)
+    reason: Mapped[str] = mapped_column(Text, default="")
+    author: Mapped[str] = mapped_column(String(16), default="agent")  # agent | user
+    snapshot: Mapped[list] = mapped_column(JSON)  # the plan BEFORE this revision
+    created_at: Mapped[float] = mapped_column(Float, default=time.time)
+
+
+class Memory(Base):
+    __tablename__ = "memories"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: new_id("m_"))
+    project_id: Mapped[str] = mapped_column(String(32), index=True)
+    key: Mapped[str] = mapped_column(String(200))
+    value: Mapped[str] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(16), default="agent")  # agent | user
+    created_at: Mapped[float] = mapped_column(Float, default=time.time)
+    updated_at: Mapped[float] = mapped_column(Float, default=time.time)
+
+
+class Checkpoint(Base):
+    __tablename__ = "checkpoints"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: new_id("c_"))
+    project_id: Mapped[str] = mapped_column(String(32), index=True)
+    run_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    label: Mapped[str] = mapped_column(String(300))
+    commit: Mapped[str] = mapped_column(String(64))
+    auto: Mapped[bool] = mapped_column(Integer, default=0)
+    meta: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[float] = mapped_column(Float, default=time.time)
+
+
+class Artifact(Base):
+    __tablename__ = "artifacts"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: new_id("art_"))
+    project_id: Mapped[str] = mapped_column(String(32), index=True)
+    run_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    type: Mapped[str] = mapped_column(String(24))  # video image audio file comparison storyboard timeline code table palette font grid
+    path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    title: Mapped[str] = mapped_column(String(300))
+    version_group: Mapped[str] = mapped_column(String(200), index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    meta: Mapped[dict | None] = mapped_column("metadata", JSON, nullable=True)
+    favorite: Mapped[bool] = mapped_column(Integer, default=0)
+    created_at: Mapped[float] = mapped_column(Float, default=time.time)
+
+
+class UserRequest(Base):
+    """A pending question / approval / options pick (survives reloads and restarts)."""
+
+    __tablename__ = "user_requests"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: new_id("q_"))
+    run_id: Mapped[str] = mapped_column(String(32), index=True)
+    kind: Mapped[str] = mapped_column(String(16))  # ask | approval | options
+    payload: Mapped[dict] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(String(16), default="pending")  # pending answered timeout cancelled
+    answer: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    tool_call_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[float] = mapped_column(Float, default=time.time)
+    answered_at: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    project_id: Mapped[str] = mapped_column(String(32), index=True)
+    run_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    level: Mapped[str] = mapped_column(String(16), default="info")
+    message: Mapped[str] = mapped_column(Text)
+    read: Mapped[bool] = mapped_column(Integer, default=0)
+    created_at: Mapped[float] = mapped_column(Float, default=time.time)
+
+
 _engine = None
 _Session: sessionmaker | None = None
 write_lock = threading.RLock()
@@ -153,21 +251,38 @@ def init_db(url: str | None = None) -> None:
         cur.execute("PRAGMA foreign_keys=ON")
         cur.close()
 
-    Base.metadata.create_all(_engine)
-    _migrate(_engine)
+    migrate(_engine)
 
     _Session = sessionmaker(_engine, expire_on_commit=False)
 
 
-def _migrate(engine) -> None:
-    """Tiny forward-only migrations for databases created by older versions."""
+def migrate(engine) -> None:
+    """Bring the schema to head with Alembic (``backend/app/migrations``).
+
+    Databases created before Alembic was introduced have tables but no ``alembic_version``:
+    they get the one pre-Alembic fix-up (``projects.owner_id``), are stamped at the
+    baseline revision and then upgraded, so existing projects keep all their data."""
+    from alembic import command
+    from alembic.config import Config
     from sqlalchemy import inspect, text
 
-    cols = {c["name"] for c in inspect(engine).get_columns("projects")}
+    from pathlib import Path
+
+    cfg = Config()
+    cfg.set_main_option("script_location", str(Path(__file__).parent / "migrations"))
     with engine.begin() as conn:
-        if "owner_id" not in cols:
-            conn.execute(text("ALTER TABLE projects ADD COLUMN owner_id VARCHAR(32)"))
-            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_projects_owner_id ON projects (owner_id)"))
+        tables = set(inspect(conn).get_table_names())
+        cfg.attributes["connection"] = conn
+        if "projects" in tables and "alembic_version" not in tables:
+            cols = {c["name"] for c in inspect(conn).get_columns("projects")}
+            if "owner_id" not in cols:
+                conn.execute(text("ALTER TABLE projects ADD COLUMN owner_id VARCHAR(32)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_projects_owner_id ON projects (owner_id)"))
+            if "users" not in tables:  # pre-accounts databases
+                Base.metadata.tables["users"].create(conn)
+                Base.metadata.tables["user_sessions"].create(conn)
+            command.stamp(cfg, "0001")
+        command.upgrade(cfg, "head")
 
 
 @contextmanager
@@ -206,4 +321,4 @@ def all_settings() -> dict:
 
 
 def to_dict(obj) -> dict:
-    return {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
+    return {a.key: getattr(obj, a.key) for a in obj.__mapper__.column_attrs}

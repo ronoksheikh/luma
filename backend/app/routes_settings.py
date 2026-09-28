@@ -97,6 +97,9 @@ class SettingsPatch(BaseModel):
     llm_preset: str | None = Field(None, max_length=32)
     job_concurrency: int | None = Field(None, ge=1, le=8)
     tool_wait_seconds: int | None = Field(None, ge=10, le=3600)
+    plan_required_after_steps: int | None = Field(None, ge=0, le=1000)
+    max_cost_usd: float | None = Field(None, ge=0, le=100000)
+    max_tokens: int | None = Field(None, ge=0, le=1_000_000_000)
 
 
 @router.put("/api/settings")

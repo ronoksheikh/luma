@@ -84,6 +84,9 @@ DEFAULT_SETTINGS = {
     "llm_model": "",
     "llm_preset": "openrouter",
     "tool_wait_seconds": 600,
+    "plan_required_after_steps": 5,  # model steps without a plan before only planning tools are accepted (0 = off)
+    "max_cost_usd": 0,  # per-run cost cap (0 = none)
+    "max_tokens": 0,  # per-run token cap (0 = none)
 }
 
 DEFAULT_PROJECT_SETTINGS = {
@@ -96,6 +99,14 @@ DEFAULT_PROJECT_SETTINGS = {
     "voice_language": "en",
     "voice_tone": "",
     "captions": True,
+    "autopilot": False,
+    "approval_render_minutes": 10,
+    "approval_el_chars": 1500,
+    "approval_cost_usd": 2.0,
+    "web_access": False,
+    "subagents": False,
+    "subagent_max_concurrency": 2,
+    "subagent_max_cost_usd": 1.0,
 }
 
 RESOLUTIONS = [(1920, 1080), (1080, 1920), (1080, 1080), (3840, 2160)]

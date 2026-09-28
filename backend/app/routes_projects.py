@@ -113,6 +113,15 @@ class ProjectSettings(BaseModel):
     voice_language: str = Field("en", max_length=32)
     voice_tone: str = Field("", max_length=200)
     captions: bool = True
+    # collaboration & long jobs
+    autopilot: bool = False  # skip approval gates
+    approval_render_minutes: float = Field(10, ge=0, le=1440)  # estimated render time that needs sign-off
+    approval_el_chars: int = Field(1500, ge=0, le=1_000_000)  # one ElevenLabs request above this needs sign-off
+    approval_cost_usd: float = Field(2.0, ge=0, le=10000)  # run cost above this needs sign-off
+    web_access: bool = False  # web_fetch / web_search tools
+    subagents: bool = False  # spawn_subagent tool
+    subagent_max_concurrency: int = Field(2, ge=1, le=6)
+    subagent_max_cost_usd: float = Field(1.0, ge=0, le=1000)
 
     @field_validator("fps")
     @classmethod

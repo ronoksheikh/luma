@@ -19,6 +19,7 @@ dependencies = [
   "cryptography==50.0.1",
   "ptyprocess==0.7.0",
   "websockets==17.1",
+  "alembic==1.20.0",
 ]
 
 [tool.setuptools.packages.find]
