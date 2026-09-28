@@ -53,13 +53,24 @@ def strip_ansi(s: str) -> str:
     return ANSI_RE.sub("", s).replace("\r\n", "\n")
 
 
+def sandbox_python() -> str:
+    """Python for sandbox processes: the persistent tool venv (/data/venv, layered over the image's
+    venv) when it is healthy, else the image's interpreter."""
+    try:
+        from .toolbox import venv
+
+        return venv.python()
+    except Exception:  # pragma: no cover
+        return config.sandbox_python or sys.executable
+
+
 def sandbox_env(workdir: str, extra: dict | None = None) -> dict:
     """A minimal, secret-free environment for sandbox processes."""
     home = os.path.expanduser(f"~{config.sandbox_user}") if config.sandbox_user else os.environ.get("HOME", "/tmp")
     path = os.environ.get("LUMA_SANDBOX_PATH") or os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin")
-    py_bin = os.path.dirname(config.sandbox_python or sys.executable)
-    if py_bin and py_bin not in path.split(":"):
-        path = py_bin + ":" + path  # the terminal's python is the engine's python
+    for py_bin in (os.path.dirname(config.sandbox_python or sys.executable), os.path.dirname(sandbox_python())):
+        if py_bin and py_bin not in path.split(":"):
+            path = py_bin + ":" + path  # the terminal's python is the engine's python (the tool venv first)
     env = {
         "PATH": path,
         "HOME": home,
@@ -71,6 +82,7 @@ def sandbox_env(workdir: str, extra: dict | None = None) -> dict:
         "PYTHONUNBUFFERED": "1",
         "MPLBACKEND": "Agg",
         "LUMA_SAMPLES_DIR": str(config.samples_dir),
+        "LUMA_PLUGIN_DIRS": str(config.toolbox_dir / "plugins"),
     }
     for k in ("LUMA_FONT_DIRS", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "https_proxy", "http_proxy", "no_proxy",
               "SSL_CERT_FILE", "REQUESTS_CA_BUNDLE", "PIP_CERT", "NODE_EXTRA_CA_CERTS", "PLAYWRIGHT_BROWSERS_PATH"):
@@ -86,12 +98,20 @@ def sandbox_env(workdir: str, extra: dict | None = None) -> dict:
     return env
 
 
-def sandbox_argv(argv: list[str], env: dict) -> list[str]:
-    """Wrap ``argv`` to run as the sandbox user with exactly ``env`` (no inheritance)."""
+def sandbox_argv(argv: list[str], env: dict, group: str | None = None) -> list[str]:
+    """Wrap ``argv`` to run as the sandbox user with exactly ``env`` (no inheritance).
+    ``group`` runs it with that primary group (same UID) — e.g. the no-network group whose
+    sockets the firewall rejects (docker/luma-netctl)."""
     envargs = ["env", "-i"] + [f"{k}={v}" for k, v in env.items()]
     if config.sandbox_user and os.environ.get("USER") != config.sandbox_user:
-        return ["sudo", "-n", "-u", config.sandbox_user, "-H", "--"] + envargs + argv
+        return ["sudo", "-n", "-u", config.sandbox_user, *(["-g", group] if group else []), "-H", "--"] + envargs + argv
     return envargs + argv
+
+
+def nonet_group() -> str | None:
+    """The group whose traffic the firewall rejects, when available (docker: `lumanonet`)."""
+    g = os.environ.get("LUMA_NONET_GROUP", "")
+    return g if g and config.sandbox_user and config.netctl else None
 
 
 @dataclass

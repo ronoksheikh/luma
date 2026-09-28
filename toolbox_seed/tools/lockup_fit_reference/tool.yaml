@@ -1,0 +1,34 @@
+name: lockup_fit_reference
+version: 1.0.0
+scope: global
+description: >-
+  Measures where a mark sits on a brand board / reference image: fits the SVG's scale and position to the reference by
+  least squares on the alpha (moments init + refinement). Returns the similarity transform, the placement as fractions
+  of the frame and an overlay image to eyeball the fit.
+parameters:
+  type: object
+  properties:
+    reference: {type: string, description: reference image (PNG with alpha, or opaque on a plain background)}
+    svg: {type: string, description: the mark to place}
+    background: {type: string, description: 'opaque references: background colour #RRGGBB (default: the corner colour)'}
+    max_side: {type: integer, default: 640, minimum: 64, maximum: 2048, description: working resolution}
+  required: [reference, svg]
+  additionalProperties: false
+returns:
+  type: object
+  properties:
+    s: {type: number}
+    tx: {type: number}
+    ty: {type: number}
+    rms: {type: number}
+    placement: {type: object}
+    overlay: {type: string}
+  required: [s, tx, ty, rms, placement]
+dependencies: []
+timeout_s: 180
+resources: {max_memory_mb: 1536}
+network: false
+produces_files: true
+tags: [layout, brand, analysis, lockup]
+author: user
+created_from_run: null

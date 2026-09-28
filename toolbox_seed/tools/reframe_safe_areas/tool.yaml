@@ -1,0 +1,31 @@
+name: reframe_safe_areas
+version: 1.0.0
+scope: global
+description: >-
+  Batch check for social reframes: renders a scene's end card at each aspect ratio (9:16, 1:1, 4:5, 16:9 …) — the
+  scene re-lays itself out for the new size — and verifies the content sits inside the action-safe area. Returns
+  sizes, content and safe boxes per aspect and a contact image; run it before queueing reframed renders.
+parameters:
+  type: object
+  properties:
+    scene: {type: string, description: scene .py (workspace path)}
+    aspects: {type: array, items: {type: string, enum: ['16:9', '9:16', '1:1', '4:5']}, default: ['9:16', '1:1', '4:5']}
+    long_side: {type: integer, default: 960, minimum: 256, maximum: 3840}
+    time: {type: number, description: 'time of the checked frame (default: the end card)'}
+  required: [scene]
+  additionalProperties: false
+returns:
+  type: object
+  properties:
+    pass: {type: boolean}
+    aspects: {type: array}
+    contact: {type: string}
+  required: [pass, aspects]
+dependencies: []
+timeout_s: 600
+resources: {max_memory_mb: 3072}
+network: false
+produces_files: true
+tags: [reframe, social, safe-area, layout, batch]
+author: user
+created_from_run: null

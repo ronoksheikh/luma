@@ -25,6 +25,9 @@ EVENT_TYPES = {
     "todo_update", "plan_revision", "memory_update", "checkpoint", "present", "ask_user", "approval_request",
     "approval_result", "options_request", "notify", "progress_stage", "budget", "subagent_start", "subagent_end",
     "compaction", "system_note",
+    # self-extending toolbox
+    "tool_created", "tool_tested", "tool_registered", "tool_updated", "tool_promoted", "tool_disabled", "skill_written", "plugin_created",
+    "template_saved",
 }
 
 

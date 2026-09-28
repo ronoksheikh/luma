@@ -5,7 +5,6 @@ import asyncio
 import json
 import os
 import shutil
-import sys
 import time
 import traceback
 from pathlib import Path
@@ -13,11 +12,10 @@ from pathlib import Path
 from sqlalchemy import select
 
 from .. import db
-from ..config import config
 from ..events import bus
 from ..jobs import jobs
 from ..secrets_store import Credentials, redact
-from ..terminal import terminals
+from ..terminal import sandbox_python, terminals
 
 ACTIVE_STATUSES = ("running", "waiting_input")
 
@@ -37,6 +35,7 @@ class RunManager:
         self.started_at: dict[str, float] = {}
         self.render_rate: dict[str, float] = {}  # measured seconds per full-size frame (from previews)
         self.crossed: dict[tuple, float] = {}  # when a run crossed its cost/time approval thresholds
+        self.toolbox_pinned: dict[str, set[str]] = {}  # toolbox tools registered in a run → always listed for it
 
     # -- state -----------------------------------------------------------------------------
     def create(self, project_id: str, kind: str = "agent", model: str = "") -> db.Run:
@@ -341,7 +340,7 @@ class RunManager:
         args = {"template": "fan_unfold", "logo": "assets/veyra-symbol.svg", "wordmark": "Veyra", "size": f"{width}x{height}", "fps": fps, "duration": duration}
         bus.publish(run_id, "tool_call_start", {"id": tcid, "name": "render_final", "index": 0})
         bus.publish(run_id, "tool_args_delta", {"id": tcid, "delta": json.dumps(args)})
-        py = config.sandbox_python or sys.executable
+        py = sandbox_python()
         workers = max(1, min(os.cpu_count() or 1, 8))
         cmd = (f"{py} -m luma_engine demo --out {out_rel} --workers {workers} --width {width} --height {height} "
                f"--fps {fps} --duration {duration} --logo assets/veyra-symbol.svg")

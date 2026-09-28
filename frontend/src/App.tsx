@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type Key } from "react";
 import { AuthScreen } from "./features/Auth";
 import { Chat } from "./features/Chat";
 import { CommandPalette } from "./features/CommandPalette";
+import { TemplatesModal } from "./features/Toolbox";
 import { useLiveNotifications } from "./features/Notifications";
 import { Inspector } from "./features/Inspector";
 import { ProjectSettingsModal } from "./features/ProjectSettings";
@@ -119,6 +120,7 @@ function Studio() {
       <SettingsModal />
       <ProjectSettingsModal />
       <CommandPalette open={palette} onClose={() => setPalette(false)} run={run} />
+      <TemplatesModal />
       <AlertDialog.Backdrop isOpen={confirmStop} onOpenChange={setConfirmStop}>
         <AlertDialog.Container><AlertDialog.Dialog className="sm:max-w-[380px]">
           <AlertDialog.Header><AlertDialog.Icon status="danger" /><AlertDialog.Heading>Stop the run?</AlertDialog.Heading></AlertDialog.Header>

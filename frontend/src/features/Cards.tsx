@@ -5,33 +5,24 @@ import {
   CheckCircle, Code, DownloadSimple, File, FileArchive, FileText, FilmStrip, Image as ImageIcon, Palette, Question, Robot, SealCheck, Star,
   Table as TableIcon, TextAa, Timer, Waveform, XCircle,
 } from "@phosphor-icons/react";
-import hljs from "highlight.js/lib/core";
-import bash from "highlight.js/lib/languages/bash";
-import css from "highlight.js/lib/languages/css";
-import ini from "highlight.js/lib/languages/ini";
-import javascript from "highlight.js/lib/languages/javascript";
-import json from "highlight.js/lib/languages/json";
-import markdown from "highlight.js/lib/languages/markdown";
-import python from "highlight.js/lib/languages/python";
-import typescript from "highlight.js/lib/languages/typescript";
-import xml from "highlight.js/lib/languages/xml";
-import yaml from "highlight.js/lib/languages/yaml";
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api, fmtBytes } from "../lib/api";
 import { ACTIVE, useRunEvents, type Artifact, type Item, type Req } from "../lib/run";
 import { useStore } from "../lib/store";
+import { hljs } from "../ui/highlight";
 import { cn } from "../ui/kit";
 import { ComparisonView, VideoPlayer, WaveformPlayer } from "../ui/player";
+import { PromotionDetails } from "./Toolbox";
 
-for (const [n, l] of Object.entries({ bash, css, ini, javascript, json, markdown, python, typescript, xml, yaml })) hljs.registerLanguage(n, l);
 
 const CARD_ICON: Record<string, any> = {
   video: FilmStrip, image: ImageIcon, audio: Waveform, file: File, comparison: SealCheck, storyboard: FilmStrip, timeline: Timer, code: Code,
   table: TableIcon, palette: Palette, grid: ImageIcon, font: TextAa,
 };
 
+/** Syntax-highlighted HTML for a code string (escaped fallback). */
 export function CardShell({ art, children, icon, subtitle, right }: { art: Artifact; children: React.ReactNode; icon?: any; subtitle?: React.ReactNode; right?: React.ReactNode }) {
   const Icon = icon || CARD_ICON[art.type] || File;
   return (
@@ -326,6 +317,7 @@ export function RequestCard({ r, runId }: { r: Req; runId: string }) {
           {d.summary && <div className="md mt-1 text-muted"><ReactMarkdown remarkPlugins={[remarkGfm]}>{d.summary}</ReactMarkdown></div>}
         </div>
       </div>
+      {r.reqKind === "approval" && d.diff && <PromotionDetails d={d} />}
       {r.reqKind === "approval" && (d.artifacts || []).length > 0 && (
         <div className="mt-3 flex flex-col gap-3">{d.artifacts.map((a: Artifact) => <PresentCard key={a.id} card={a.type} art={a} />)}</div>
       )}

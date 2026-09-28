@@ -1,0 +1,35 @@
+name: board_residual_extract
+version: 1.0.0
+scope: global
+description: >-
+  Reconstructs the hidden background gradient of a brand board (robust least-squares polynomial surface per channel)
+  and extracts faint decorative lines/elements by residual subtraction and thresholding. Returns the gradient model
+  (corner colours, coefficients), detected line segments and images of the model, amplified residual and mask.
+parameters:
+  type: object
+  properties:
+    image: {type: string}
+    degree: {type: integer, minimum: 1, maximum: 5, default: 2}
+    threshold_sigma: {type: number, default: 4.0, description: residual threshold in robust sigmas}
+    min_line_length: {type: number, default: 0.08, description: fraction of the image diagonal}
+    exclude_mask: {type: string, description: 'optional mask image (white = ignore, e.g. the logo)'}
+  required: [image]
+  additionalProperties: false
+returns:
+  type: object
+  properties:
+    corners: {type: object}
+    coefficients: {type: array}
+    residual_sigma: {type: number}
+    element_fraction: {type: number}
+    lines: {type: array}
+    images: {type: object}
+  required: [corners, lines, residual_sigma]
+dependencies: []
+timeout_s: 180
+resources: {max_memory_mb: 2048}
+network: false
+produces_files: true
+tags: [analysis, brand, board, gradient, residual]
+author: user
+created_from_run: null

@@ -10,6 +10,7 @@ import remarkGfm from "remark-gfm";
 import { api } from "../lib/api";
 import { ACTIVE, type Item, type Media, type RunState, type ToolItem } from "../lib/run";
 import { PresentCard, RequestCard, SubagentCard } from "./Cards";
+import { ToolboxEventCard } from "./Toolbox";
 import { NotificationBell, askNotificationPermission } from "./Notifications";
 import { RunBar, ResumeBanner } from "./RunBar";
 import { useStore } from "../lib/store";
@@ -286,6 +287,7 @@ export function renderItems(items: Item[], runId: string, onImage: (m: Media) =>
 const TimelineItem = memo(function TimelineItem({ item, onImage, runId }: { item: Item; onImage: (m: Media) => void; runId: string }) {
   if (item.kind === "card") return <PresentCard card={item.card} art={item.artifact} />;
   if (item.kind === "request") return <RequestCard r={item} runId={runId} />;
+  if (item.kind === "toolbox") return <ToolboxEventCard ev={item.event} data={item.data} />;
   if (item.kind === "subagent") return <SubagentCard it={item} render={(its, rid) => renderItems(its, rid, onImage)} />;
   if (item.kind === "tool" && CARD_TOOLS.has(item.name) && item.status !== "error") return null;
   if (item.kind === "user") {

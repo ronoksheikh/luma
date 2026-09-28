@@ -55,6 +55,7 @@ RUN if getent passwd 1000 >/dev/null; then userdel -r "$(getent passwd 1000 | cu
  && groupadd -g 1500 lumawork \
  && useradd -m -u 1000 -s /bin/bash -G lumawork luma \
  && useradd -m -u 1001 -s /usr/sbin/nologin -G lumawork studio \
+ && groupadd -g 1501 lumanonet \
  && echo "luma ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/luma-sandbox \
  && chmod 440 /etc/sudoers.d/luma-sandbox \
  && mkdir -p /data && chown studio:lumawork /data && chmod 2775 /data
@@ -69,6 +70,7 @@ RUN /opt/venv/bin/pip install --no-deps --no-build-isolation /opt/luma/engine \
 COPY backend /opt/luma/backend
 COPY prompts /opt/luma/prompts
 COPY samples /opt/luma/samples
+COPY toolbox_seed /opt/luma/toolbox_seed
 COPY --from=frontend /src/dist /opt/luma/frontend/dist
 
 # The sandbox user's pip/npm installs go to its home; the venv is on its PATH.
@@ -86,7 +88,9 @@ ENV PATH=/opt/venv/bin:$PATH \
     LUMA_SANDBOX_GROUP=lumawork \
     LUMA_SANDBOX_PYTHON=/opt/venv/bin/python \
     LUMA_SANDBOX_PATH=/opt/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
-    LUMA_NETCTL="sudo -n /usr/local/sbin/luma-netctl"
+    LUMA_NETCTL="sudo -n /usr/local/sbin/luma-netctl" \
+    LUMA_TOOLBOX_SEED=/opt/luma/toolbox_seed \
+    LUMA_NONET_GROUP=lumanonet
 
 EXPOSE 8080
 VOLUME ["/data"]

@@ -61,6 +61,13 @@ async def lifespan(app: FastAPI):
     from .terminal import terminals
 
     runs.recover()
+    from .toolbox import boot as toolbox_boot
+
+    try:
+        toolbox_boot.init()
+        app.state.toolbox_task = asyncio.create_task(toolbox_boot.register_pending())
+    except Exception:  # noqa: BLE001 — the studio boots without its toolbox rather than not at all
+        log.exception("toolbox init failed")
     print(BANNER, flush=True)
     print(WARNING, flush=True)
     log.warning("Accounts get a sandbox shell: keep the port private, use TLS when exposing it, and close sign-up (LUMA_ALLOW_SIGNUP=false) once accounts exist.")
@@ -82,6 +89,7 @@ def create_app() -> FastAPI:
     from .routes_runs import ws_router
     from .routes_settings import public_router
     from .routes_settings import router as settings_router
+    from .routes_toolbox import router as toolbox_router
     from .security import SecurityMiddleware
 
     app.add_middleware(SecurityMiddleware)
@@ -92,6 +100,7 @@ def create_app() -> FastAPI:
     app.include_router(projects_router)
     app.include_router(runs_router)
     app.include_router(long_router)
+    app.include_router(toolbox_router)
 
     static = Path(config.static_dir)
 

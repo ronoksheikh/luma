@@ -100,6 +100,10 @@ class SettingsPatch(BaseModel):
     plan_required_after_steps: int | None = Field(None, ge=0, le=1000)
     max_cost_usd: float | None = Field(None, ge=0, le=100000)
     max_tokens: int | None = Field(None, ge=0, le=1_000_000_000)
+    toolbox_max_tools: int | None = Field(None, ge=0, le=100)
+    toolbox_network: bool | None = None
+    allow_global_promotion: bool | None = None
+    skill_required_after_steps: int | None = Field(None, ge=0, le=5000)
 
 
 @router.put("/api/settings")

@@ -244,9 +244,9 @@ def run(a):
     if a.cmd == "describe":
         return R.load_scene(a.scene, **_overrides(a)).describe()
     if a.cmd == "templates":
-        from .templates import TEMPLATES
+        from .templates import all_templates
 
-        return {k: v for k, v in TEMPLATES.items()}
+        return all_templates()
     if a.cmd == "demo":
         return demo(a.out, a.workers, a.logo, a.wordmark, _overrides(a))
     if a.cmd in PRODUCTION:

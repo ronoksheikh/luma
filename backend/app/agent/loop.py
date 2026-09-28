@@ -112,10 +112,12 @@ class AgentLoop:
         self.vision = bool(caps.get("vision"))
         self.client = make_client(creds)
         if self.is_child:
-            self.tools = available_tools(el_enabled=creds.has_elevenlabs, project_settings={**self.settings["project"], "subagent_child": True},
-                                         only=self.limits["tools"])
+            self.base_tools = available_tools(el_enabled=creds.has_elevenlabs, project_settings={**self.settings["project"], "subagent_child": True},
+                                              only=self.limits["tools"])
         else:
-            self.tools = available_tools(el_enabled=creds.has_elevenlabs, project_settings=self.settings["project"])
+            self.base_tools = available_tools(el_enabled=creds.has_elevenlabs, project_settings=self.settings["project"])
+        self.tools = dict(self.base_tools)
+        self._skills_brief: str | None = None
         self.coal = Coalescer(run_id)
         self.el_budget = ElBudget(run_id, self.settings.get("el_char_budget", 5000))
         self.include_usage = True
@@ -140,12 +142,79 @@ class AgentLoop:
 
     def system_prompt(self) -> str:
         base = director_prompt() + "\n\n" + C.pinned_facts(self.project_id, self.pdir, self._el_status(), self.vision) + \
-            C.pinned_long_job(self.run_id, self.project_id, self.pdir)
+            C.pinned_long_job(self.run_id, self.project_id, self.pdir) + self._toolbox_brief()
         if self.is_child:
             base += ("\n\n## You are a sub-agent\nThe director delegated ONE task to you (first user message). You cannot talk to the user, "
                      "deliver or spawn agents; you share the workspace, so write into your own subfolder of work/ unless told otherwise. "
                      "End with subagent_report (structured result + summary + artifact ids).")
         return base
+
+    # ------------------------------------------------------------------------------------ toolbox
+    def _focus_text(self) -> str:
+        """What the agent is working on now: the in-progress todo, else the latest user message."""
+        from .. import plan
+
+        for t in plan.todos(self.run_id):
+            if t["status"] == "in_progress":
+                return f"{t['title']} {t['detail']} {t['acceptance_criteria']}"
+        with db.session() as s:
+            from sqlalchemy import select
+
+            m = s.scalars(select(db.Message).where(db.Message.run_id == self.run_id, db.Message.role == "user").order_by(db.Message.id.desc()).limit(1)).first()
+            c = (m.content or {}).get("content") if m else ""
+        return c if isinstance(c, str) else ""
+
+    def _refresh_tools(self) -> dict:
+        """Built-ins + the toolbox tools for this step (the LLM sees a tool registered last step)."""
+        from .tools.toolbox_tools import toolbox_function_tools
+
+        tools = dict(self.base_tools)
+        try:
+            if self.is_child:
+                allowed = set(self.limits.get("tools") or [])
+                extra = toolbox_function_tools(self.project_id, self.run_id, "", len(allowed), allowed)
+                extra = {n: t for n, t in extra.items() if n in allowed}
+            else:
+                extra = toolbox_function_tools(self.project_id, self.run_id, self._focus_text(), int(self.settings.get("toolbox_max_tools", 15)),
+                                               self.runner.toolbox_pinned.get(self.run_id, set()))
+        except Exception:  # noqa: BLE001 — a broken toolbox index never stops the director
+            log.exception("toolbox tool selection failed")
+            extra = {}
+        for n, t in extra.items():
+            tools.setdefault(n, t)
+        return tools
+
+    def _toolbox_brief(self) -> str:
+        """Relevant skills (FTS over the brief, assets and request — computed once per run) + toolbox size."""
+        if self.is_child:
+            return ""
+        from ..toolbox import skills as K
+        from ..toolbox import store
+
+        if self._skills_brief is None:
+            try:
+                with db.session() as s:
+                    from sqlalchemy import select
+
+                    p = s.get(db.Project, self.project_id)
+                    names = " ".join(a.filename.rsplit(".", 1)[0].replace("-", " ").replace("_", " ")
+                                     for a in s.scalars(select(db.Asset).where(db.Asset.project_id == self.project_id)))
+                    brief = f"{p.brief if p else ''} {names} {self._focus_text()}"
+                self._skills_brief = K.relevant_summary(brief)
+            except Exception:  # noqa: BLE001
+                log.exception("skill summary failed")
+                self._skills_brief = ""
+        n_tools = len(store.callable_rows(self.project_id))
+        listed = len([n for n in self.tools if n not in self.base_tools])
+        tb = (f"\n\n## Toolbox\n{n_tools} registered toolbox tool(s) in reach ({listed} listed as functions this step; the rest via "
+              f"toolbox_search → toolbox_call). Reuse before build.") if n_tools else ""
+        return self._skills_brief + tb
+
+    async def invoke(self, name: str, params: dict, parent: ToolContext):
+        """``ctx.call_tool`` RPC from a running toolbox tool (budgeted, gated, no keys)."""
+        from .tools.toolbox_tools import invoke
+
+        return await invoke(self, name, params, parent)
 
     # ------------------------------------------------------------------------------------
     async def run(self) -> None:
@@ -177,6 +246,7 @@ class AgentLoop:
                 self._persist({"role": "user", "content": f"[User message while you were working]\n{text}"})
             for note in R.take_notes(self.run_id):
                 self._persist({"role": "user", "content": f"[System note]\n{note}"})
+            self.tools = self._refresh_tools()
             messages = await self._build_messages()
             try:
                 turn = await self._stream(messages)
@@ -425,6 +495,26 @@ class AgentLoop:
             raise ToolError("Approval needed before " + "; ".join(reasons) + ". Present the drafts (present_video / present_storyboard …), "
                             "then call request_approval with their artifact ids and a summary of the time/cost. (Project Autopilot skips this.)")
 
+    def _toolbox_tool(self, name: str):
+        """A registered toolbox tool that was not among this step's listed functions is still callable by name."""
+        from ..toolbox import store
+        from .tools.base import Tool
+        from .tools.toolbox_tools import call_toolbox_tool
+
+        if name in self.base_tools or (self.is_child and name not in set(self.limits.get("tools") or [])):
+            return None
+        try:  # any status: a disabled / failing tool answers with why it cannot run, not "unknown tool"
+            row = store.effective(self.project_id).get(name)
+        except Exception:  # noqa: BLE001
+            return None
+        if row is None:
+            return None
+
+        async def handler(ctx, args):
+            return await call_toolbox_tool(ctx, name, args)
+
+        return Tool(name, row.description, (row.manifest or {}).get("parameters") or {"type": "object"}, handler)
+
     def _check_plan_rule(self, name: str) -> None:
         """Long requests must start with a plan: after `plan_required_after_steps` model steps without todos,
         only planning / read-only tools are accepted."""
@@ -442,8 +532,8 @@ class AgentLoop:
     async def _exec(self, c: _Call) -> ToolOutput:
         t0 = time.monotonic()
         ctx = ToolContext(self.run_id, self.project_id, self.pdir, self.creds, self.settings, self.vision, self.runner,
-                          tool_call_id=c.id, coalescer=self.coal, el_budget=self.el_budget)
-        tool = self.tools.get(c.name)
+                          tool_call_id=c.id, coalescer=self.coal, el_budget=self.el_budget, agent=self)
+        tool = self.tools.get(c.name) or self._toolbox_tool(c.name)
         try:
             if tool is None:
                 raise ToolError(f"unknown tool '{c.name}'. Available tools: {', '.join(sorted(self.tools))}")
@@ -473,7 +563,7 @@ class AgentLoop:
         return out
 
 
-PLAN_EXEMPT = {"todo_write", "todo_add", "todo_list", "ask_user", "list_files", "read_file", "inspect_asset", "view_image", "memory_read",
+PLAN_EXEMPT = {"toolbox_search", "toolbox_list", "toolbox_read", "skill_search", "skill_read", "todo_write", "todo_add", "todo_list", "ask_user", "list_files", "read_file", "inspect_asset", "view_image", "memory_read",
                "memory_search", "memory_write", "notes_append", "notes_read", "checkpoint_list", "budget_status", "context_compact",
                "media_probe", "notify", "report_progress", "finish"}
 

@@ -1,0 +1,31 @@
+name: palette_from_image
+version: 1.0.0
+scope: global
+description: >-
+  Brand discovery helper: dominant colours of a logo, board or screenshot (k-means in Lab over opaque pixels, plus the
+  exact colours declared in SVG/PDF sources) with their share, WCAG contrast against white/black and against each
+  other, and a swatch image. Use it before choosing backgrounds and text colours.
+parameters:
+  type: object
+  properties:
+    path: {type: string, description: PNG/JPEG/WebP/SVG/PDF}
+    k: {type: integer, minimum: 2, maximum: 16, default: 6}
+    min_share: {type: number, default: 0.01, description: drop clusters smaller than this share}
+  required: [path]
+  additionalProperties: false
+returns:
+  type: object
+  properties:
+    colors: {type: array}
+    declared: {type: array}
+    pairs: {type: array}
+    swatch: {type: string}
+  required: [colors]
+dependencies: []
+timeout_s: 120
+resources: {max_memory_mb: 1024}
+network: false
+produces_files: true
+tags: [brand, color, palette, discovery, contrast]
+author: user
+created_from_run: null

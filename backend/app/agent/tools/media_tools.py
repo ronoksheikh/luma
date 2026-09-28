@@ -4,15 +4,14 @@ from __future__ import annotations
 import asyncio
 import json
 import shutil
-import sys
 import time
 from pathlib import Path
 
 from sqlalchemy import select
 
 from ... import db
-from ...config import config
 from ...jobs import JobError, jobs
+from ...terminal import sandbox_python
 from .base import ToolContext, ToolError, ToolOutput, parse_json_tail, run_engine, tool, truncate
 
 
@@ -177,7 +176,7 @@ async def render_final(ctx: ToolContext, a: dict) -> ToolOutput:
     name = str(a.get("name") or "final")
     if not name.replace("-", "").replace("_", "").isalnum():
         raise ToolError("name must be alphanumeric (plus - and _)")
-    py = config.sandbox_python or sys.executable
+    py = sandbox_python()
     prores = bool(a.get("prores")) or "prores" in (ctx.settings.get("project", {}).get("formats") or [])
     cmd = f"{py} -m luma_engine pipeline {scene} --out {ctx.pdir / 'renders' / name} --name {name}" + (" --prores" if prores else "")
     cmd += " " + " ".join(_overrides(ctx))

@@ -1,6 +1,6 @@
 // ⌘K / Ctrl+K: jump to a project, artifact or todo; start the demo; export all; open settings.
 import { Input, Kbd, ListBox, Modal } from "@heroui/react";
-import { DownloadSimple, FolderSimple, GearSix, ListChecks, MagnifyingGlass, Play, Plus, Star } from "@phosphor-icons/react";
+import { DownloadSimple, FolderSimple, GearSix, ListChecks, MagnifyingGlass, Play, Plus, Star, Wrench } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { api, type Project } from "../lib/api";
 import type { Artifact, RunState } from "../lib/run";
@@ -29,6 +29,9 @@ export function CommandPalette({ open, onClose, run }: { open: boolean; onClose:
       { id: "settings", group: "Actions", label: "Settings", hint: "⌘ ,", icon: GearSix, run: () => s.openSettings() },
       { id: "plan", group: "Actions", label: "Open the plan", icon: ListChecks, run: () => go("plan") },
       { id: "artifacts", group: "Actions", label: "Open artifacts", icon: Star, run: () => go("artifacts") },
+      { id: "toolbox", group: "Toolbox", label: "Open the toolbox", hint: "tools", icon: Wrench, run: () => s.openToolbox("tools") },
+      { id: "skills", group: "Toolbox", label: "Skills", hint: "playbooks", icon: Wrench, run: () => s.openToolbox("skills") },
+      { id: "templates", group: "Toolbox", label: "Templates gallery", hint: "use template", icon: Wrench, run: () => s.setTemplatesOpen(true) },
     ];
     for (const p of s.projects) out.push({ id: `p_${p.id}`, group: "Projects", label: p.name, hint: `${p.settings.width}×${p.settings.height}`, icon: FolderSimple, run: () => s.selectProject(p.id) });
     for (const a of arts) out.push({ id: `a_${a.id}`, group: "Artifacts", label: `${a.title} v${a.version}`, hint: a.type, icon: Star, run: () => go("artifacts") });

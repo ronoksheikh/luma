@@ -42,6 +42,24 @@ class Config:
         return self.data_dir / "projects"
 
     @property
+    def toolbox_dir(self) -> Path:
+        """GLOBAL toolbox (tools, skills, plugins) — a git repo owned by the backend, read-only for the sandbox."""
+        return self.data_dir / "toolbox"
+
+    @property
+    def venv_dir(self) -> Path:
+        """Persistent Python venv for tool dependencies (layered over the image's venv)."""
+        return Path(os.environ.get("LUMA_VENV_DIR") or self.data_dir / "venv")
+
+    @property
+    def opt_dir(self) -> Path:
+        return self.data_dir / "opt"
+
+    @property
+    def toolbox_seed_dir(self) -> Path:
+        return Path(os.environ.get("LUMA_TOOLBOX_SEED", Path(__file__).resolve().parents[2] / "toolbox_seed"))
+
+    @property
     def secrets_dir(self) -> Path:
         return self.data_dir / "secrets"
 
@@ -87,6 +105,10 @@ DEFAULT_SETTINGS = {
     "plan_required_after_steps": 5,  # model steps without a plan before only planning tools are accepted (0 = off)
     "max_cost_usd": 0,  # per-run cost cap (0 = none)
     "max_tokens": 0,  # per-run token cap (0 = none)
+    "toolbox_max_tools": 15,  # toolbox tools sent to the model per step (the rest via toolbox_search / toolbox_call)
+    "toolbox_network": False,  # tools whose manifest declares network: true may use it only when this is on
+    "allow_global_promotion": False,  # with project Autopilot: promote project tools to global without an approval card
+    "skill_required_after_steps": 60,  # finish asks for a skill when a run took more steps than this (0 = off)
 }
 
 DEFAULT_PROJECT_SETTINGS = {

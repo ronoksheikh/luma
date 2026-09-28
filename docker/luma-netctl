@@ -23,6 +23,10 @@ base_rules() {
   ipt -F "$CHAIN"
   # never let the agent administer Luma Studio through its own API
   ipt -A "$CHAIN" -o lo -p tcp --dport "$PORT" -j REJECT
+  # toolbox tools whose manifest says network: false run with the primary group lumanonet: no network at all
+  if getent group lumanonet >/dev/null; then
+    ipt -A "$CHAIN" -m owner --gid-owner lumanonet -j REJECT
+  fi
 }
 
 sudo_on() {

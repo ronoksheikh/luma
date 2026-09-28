@@ -44,7 +44,8 @@ export type Item =
   | { kind: "notice"; id: string; tone: "error" | "warn" | "info"; text: string; code?: string }
   | { kind: "card"; id: string; card: string; artifact: Artifact }
   | Req
-  | { kind: "subagent"; id: string; child: string; label: string; task: string; tools: string[]; status: string; result?: any };
+  | { kind: "subagent"; id: string; child: string; label: string; task: string; tools: string[]; status: string; result?: any }
+  | { kind: "toolbox"; id: string; event: string; data: any };
 
 export type Usage = { steps?: number; prompt_tokens?: number; completion_tokens?: number; el_chars?: number; max_steps?: number; el_budget?: number; cost_usd?: number };
 export type Budget = { steps: number; max_steps: number; tokens: number; max_tokens: number | null; cost_usd: number; max_cost_usd: number | null;
@@ -68,17 +69,20 @@ export type RunState = {
   stage?: Stage;
   budget?: Budget;
   notifications: Notice[];
-  versions: { artifacts: number; memory: number; checkpoints: number };
+  versions: { artifacts: number; memory: number; checkpoints: number; toolbox: number };
   pendingRequest?: Req;
 };
 
 const EMPTY: RunState = { items: [], status: "idle", usage: {}, images: [], audios: [], artifacts: [], connected: false, lastId: 0,
-  todos: [], plan: { done: 0, total: 0, current: null }, notifications: [], versions: { artifacts: 0, memory: 0, checkpoints: 0 } };
+  todos: [], plan: { done: 0, total: 0, current: null }, notifications: [], versions: { artifacts: 0, memory: 0, checkpoints: 0, toolbox: 0 } };
+
+export const TOOLBOX_EVENTS = ["tool_created", "tool_tested", "tool_registered", "tool_updated", "tool_promoted", "tool_disabled", "skill_written",
+  "plugin_created", "template_saved"];
 
 const TYPES = ["text_delta", "tool_call_start", "tool_args_delta", "tool_output_delta", "tool_result", "image", "audio", "progress", "artifact",
   "usage", "error", "run_status", "user_message", "job", "retry", "context", "todo_update", "plan_revision", "memory_update", "checkpoint", "present",
   "ask_user", "approval_request", "approval_result", "options_request", "notify", "progress_stage", "budget", "subagent_start", "subagent_end",
-  "compaction", "system_note"];
+  "compaction", "system_note", ...TOOLBOX_EVENTS];
 
 const REQ_KIND: Record<string, Req["reqKind"]> = { ask_user: "ask", approval_request: "approval", options_request: "options" };
 
@@ -102,6 +106,11 @@ export function reduce(s: RunState, e: Ev): RunState {
     next.items = items.map((x) => (x === it ? c : x));
     return c;
   };
+  if (TOOLBOX_EVENTS.includes(e.type)) {
+    next.items = [...items, { kind: "toolbox", id: `tb${e.id}`, event: e.type, data: d }];
+    next.versions = { ...s.versions, toolbox: s.versions.toolbox + 1 };
+    return next;
+  }
   switch (e.type) {
     case "user_message":
       next.items = [...items, { kind: "user", id: `u${e.id}`, text: d.text }];

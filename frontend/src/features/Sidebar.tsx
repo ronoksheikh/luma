@@ -4,6 +4,7 @@ import { useState } from "react";
 import { api, type Project } from "../lib/api";
 import { useStore } from "../lib/store";
 import { Field, Logo, SectionLabel, cn } from "../ui/kit";
+import { ToolboxNav } from "./Toolbox";
 
 export function Sidebar() {
   const { projects, projectId, selectProject, refreshProjects, notify, setNavOpen } = useStore();
@@ -87,6 +88,8 @@ export function Sidebar() {
         {!projects.length && <p className="px-1 py-2 text-sm text-muted">No projects yet.</p>}
       </div>
 
+      <Separator />
+      <ToolboxNav />
       <Separator />
       <div className="flex flex-col gap-1 p-3">
         <DemoButton />

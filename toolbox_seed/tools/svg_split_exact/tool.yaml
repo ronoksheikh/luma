@@ -1,0 +1,37 @@
+name: svg_split_exact
+version: 1.0.0
+scope: global
+description: >-
+  Splits a logo SVG shape into animation parts at its pivot (radial cuts) or along given lines, with an exact area
+  check (pieces must sum to the original area within tol). Detects notches and the hinge/pivot from principal axes.
+  Writes one SVG per part plus a coloured preview.
+parameters:
+  type: object
+  properties:
+    svg: {type: string, description: SVG path (workspace-relative)}
+    shape: {type: [integer, string], description: 'shape index or id (default: union of all shapes)'}
+    mode: {type: string, enum: [radial, lines], default: radial}
+    angles_deg: {type: array, items: {type: number}, description: 'radial: ray angles (0 = +x, clockwise); default: evenly spaced n_parts'}
+    n_parts: {type: integer, minimum: 2, maximum: 64, default: 5}
+    pivot: {type: array, items: {type: number}, minItems: 2, maxItems: 2, description: 'radial centre (default: detected)'}
+    lines: {type: array, items: {type: array}, description: 'lines mode: [[[x0,y0],[x1,y1]], ...] in SVG user units'}
+    tol: {type: number, default: 1.0e-09}
+  required: [svg]
+  additionalProperties: false
+returns:
+  type: object
+  properties:
+    parts: {type: array}
+    area_error: {type: number}
+    pivot: {type: array}
+    notches: {type: array}
+    preview: {type: string}
+  required: [parts, area_error]
+dependencies: []
+timeout_s: 120
+resources: {max_memory_mb: 1024}
+network: false
+produces_files: true
+tags: [svg, geometry, logo, split]
+author: user
+created_from_run: null

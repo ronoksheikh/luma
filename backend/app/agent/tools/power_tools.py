@@ -9,7 +9,6 @@ import asyncio
 import io
 import json
 import re
-import sys
 import time
 import zipfile
 from pathlib import Path
@@ -19,6 +18,7 @@ from sqlalchemy import select
 from ... import artifacts, db, webfetch
 from ...config import config
 from ...jobs import JobError, jobs
+from ...terminal import sandbox_python
 from .base import ToolContext, ToolError, ToolOutput, parse_json_tail, run_engine, tool, truncate
 
 
@@ -148,7 +148,7 @@ async def reframe_export(ctx: ToolContext, a: dict) -> ToolOutput:
     problems = [r["aspect"] for r in res["aspects"] if not r["inside_safe_area"]]
     queued = []
     if not a.get("check_only"):
-        py = config.sandbox_python or sys.executable
+        py = sandbox_python()
         st = ctx.settings.get("project", {})
         for r in res["aspects"]:
             w, h = r["size"]
@@ -181,7 +181,7 @@ async def batch_render(ctx: ToolContext, a: dict) -> ToolOutput:
 
     sc = ctx.resolve(a["scene"], must_exist=True)
     q = a.get("quality") or "draft"
-    py = config.sandbox_python or sys.executable
+    py = sandbox_python()
     base = ctx.pdir / "renders" / "variants"
     specs = []
     for v in a["variants"]:

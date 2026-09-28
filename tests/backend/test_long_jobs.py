@@ -269,10 +269,11 @@ def test_alembic_upgrades_a_pre_alembic_database_without_data_loss(tmp_path):
     insp = sa.inspect(eng)
     tables = set(insp.get_table_names())
     assert {"todos", "memories", "checkpoints", "artifacts", "user_requests", "notifications", "users", "alembic_version"} <= tables
+    assert {"toolbox_tools", "toolbox_calls", "skills", "plugins", "toolbox_audit", "toolbox_fts"} <= tables  # 0003
     assert "owner_id" in {c["name"] for c in insp.get_columns("projects")}
     assert "parent_run_id" in {c["name"] for c in insp.get_columns("runs")}
     with eng.connect() as c:
         assert c.execute(sa.text("select name from projects")).scalar() == "Old film"
         assert c.execute(sa.text("select cost_usd from runs where id='r_old'")).scalar() == 0
         assert c.execute(sa.text("select count(*) from events")).scalar() == 1
-        assert c.execute(sa.text("select version_num from alembic_version")).scalar() == "0002"
+        assert c.execute(sa.text("select version_num from alembic_version")).scalar() == "0003"

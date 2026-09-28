@@ -12,6 +12,7 @@ import { VideoPlayer } from "../ui/player";
 import { AssetsPanel } from "./Assets";
 import { ArtifactsPanel, CheckpointsPanel, MemoryPanel, PlanPanel } from "./LongPanels";
 import { TerminalPanel } from "./Terminal";
+import { ToolboxPanel } from "./Toolbox";
 
 export function Inspector({ run }: { run: RunState }) {
   const { rightTab, setRightTab, projectId, projects } = useStore();
@@ -26,7 +27,7 @@ export function Inspector({ run }: { run: RunState }) {
   const qc = run.artifacts.filter((a) => a.kind === "qc").length;
 
   const primary: [string, string, number?][] = [
-    ["preview", "Preview"], ["plan", "Plan"], ["artifacts", "Artifacts"], ["terminal", "Terminal"], ["assets", "Assets", assetCount],
+    ["preview", "Preview"], ["plan", "Plan"], ["artifacts", "Artifacts"], ["toolbox", "Toolbox"], ["terminal", "Terminal"], ["assets", "Assets", assetCount],
   ];
   const more: [string, string, number?][] = [["memory", "Memory"], ["checkpoints", "Checkpoints"], ["media", "Media", mediaCount], ["outputs", "Files", files.length], ["qc", "QC", qc]];
   return (
@@ -44,12 +45,12 @@ export function Inspector({ run }: { run: RunState }) {
       </Dropdown.Popover>
     </Dropdown>
     <Tabs variant="secondary" selectedKey={rightTab} onSelectionChange={(k) => setRightTab(String(k))} className="flex h-full min-h-0 flex-col">
-      <Tabs.ListContainer className="flex h-14 shrink-0 items-end overflow-x-auto border-separator pl-3 pr-24">
+      <Tabs.ListContainer className="flex h-14 shrink-0 items-end overflow-x-auto border-separator pl-2 pr-[5.5rem]">
         <Tabs.List aria-label="Inspector">
           {[...primary, ...more].map(([id, label, n]) => {
             const extra = more.some(([m]) => m === id);
             return (
-              <Tabs.Tab key={id} id={id} className={cn("h-11 gap-1.5 whitespace-nowrap px-3", extra && id !== rightTab && "hidden")}>
+              <Tabs.Tab key={id} id={id} className={cn("h-11 gap-1.5 whitespace-nowrap px-2.5", extra && id !== rightTab && "hidden")}>
                 {label}
                 {id === "plan" && run.plan.total ? <span className="text-[11px] tabular-nums text-muted">{run.plan.done}/{run.plan.total}</span> : null}
                 {n ? <span className="text-[11px] tabular-nums text-muted">{n}</span> : null}
@@ -62,6 +63,7 @@ export function Inspector({ run }: { run: RunState }) {
       <Tabs.Panel id="preview" className="min-h-0 flex-1 overflow-y-auto p-0"><PreviewPanel run={run} files={files} /></Tabs.Panel>
       <Tabs.Panel id="plan" className="min-h-0 flex-1 overflow-y-auto p-0"><PlanPanel run={run} /></Tabs.Panel>
       <Tabs.Panel id="artifacts" className="min-h-0 flex-1 overflow-y-auto p-0"><ArtifactsPanel version={run.versions.artifacts} /></Tabs.Panel>
+      <Tabs.Panel id="toolbox" className="min-h-0 flex-1 overflow-hidden p-0"><ToolboxPanel version={run.versions.toolbox} /></Tabs.Panel>
       <Tabs.Panel id="assets" className="min-h-0 flex-1 overflow-y-auto p-0"><AssetsPanel /></Tabs.Panel>
       <Tabs.Panel id="terminal" shouldForceMount className="min-h-0 flex-1 p-0 [&[inert]]:hidden"><TerminalPanel visible={rightTab === "terminal"} /></Tabs.Panel>
       <Tabs.Panel id="memory" className="min-h-0 flex-1 overflow-y-auto p-0"><MemoryPanel version={run.versions.memory} /></Tabs.Panel>

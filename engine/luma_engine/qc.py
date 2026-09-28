@@ -151,6 +151,21 @@ def qc_report(path: str, *, expected_frames: int | None = None, expected_fps: fl
     elif require_audio:
         checks.append(_check("has_audio", False, False, True))
 
+    # toolbox qc_check plugins: check(video_path, info) -> {name, pass, value?, expected?, detail?, severity?}
+    try:
+        from . import plugins as _plugins
+
+        for plug in _plugins.list_plugins("qc_check"):
+            try:
+                mod = _plugins.load(plug["name"])
+                r = mod.check(path, dict(info))
+                checks.append(_check(f"plugin:{r.get('name') or plug['name']}", bool(r.get("pass")), r.get("value"), r.get("expected"),
+                                     r.get("detail", ""), r.get("severity", "warning")))
+            except Exception as e:  # noqa: BLE001 — a broken plugin never breaks QC
+                checks.append(_check(f"plugin:{plug['name']}", False, None, None, f"plugin error: {type(e).__name__}: {e}", "warning"))
+    except Exception:  # noqa: BLE001
+        pass
+
     ok = all(c["pass"] for c in checks if c["severity"] == "error")
     report = {
         "pass": ok,

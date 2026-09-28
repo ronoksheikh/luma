@@ -1,5 +1,7 @@
 # The backend (studio) may start processes as the sandbox user and run the network helper.
 Defaults:studio !use_pty, !requiretty, !lecture, env_reset, !syslog, umask=0002
 studio ALL=(luma) NOPASSWD: ALL
+# toolbox tools with `network: false` run as luma with the primary group lumanonet (firewalled)
+studio ALL=(luma : lumanonet) NOPASSWD: ALL
 studio ALL=(root) NOPASSWD: /usr/local/sbin/luma-netctl
 Defaults:luma !lecture, !syslog

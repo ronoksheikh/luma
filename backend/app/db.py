@@ -222,6 +222,97 @@ class Notification(Base):
     created_at: Mapped[float] = mapped_column(Float, default=time.time)
 
 
+class ToolboxTool(Base):
+    """Index of a toolbox tool (the files under tools/<name>/ are the source of truth)."""
+
+    __tablename__ = "toolbox_tools"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: new_id("tt_"))
+    name: Mapped[str] = mapped_column(String(64), index=True)
+    scope: Mapped[str] = mapped_column(String(8))  # global | project
+    project_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    version: Mapped[str] = mapped_column(String(32), default="0.0.0")
+    enabled: Mapped[bool] = mapped_column(Integer, default=0)  # registered and callable
+    test_status: Mapped[str] = mapped_column(String(16), default="untested")  # untested passed failed invalid
+    test_output: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tested_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    files_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    scan: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    stats: Mapped[dict] = mapped_column(JSON, default=dict)
+    path: Mapped[str] = mapped_column(String(512))
+    manifest: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    author: Mapped[str] = mapped_column(String(16), default="agent")
+    description: Mapped[str] = mapped_column(Text, default="")
+    tags: Mapped[list] = mapped_column(JSON, default=list)
+    deprecated: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_from_run: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[float] = mapped_column(Float, default=time.time)
+    updated_at: Mapped[float] = mapped_column(Float, default=time.time)
+
+
+class ToolboxCall(Base):
+    __tablename__ = "toolbox_calls"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tool_id: Mapped[str] = mapped_column(String(32), index=True)
+    name: Mapped[str] = mapped_column(String(64))
+    version: Mapped[str] = mapped_column(String(32), default="")
+    project_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    run_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    tool_call_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    source: Mapped[str] = mapped_column(String(16), default="agent")  # agent | try | rpc
+    status: Mapped[str] = mapped_column(String(16))  # success | error
+    duration_s: Mapped[float] = mapped_column(Float, default=0.0)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[float] = mapped_column(Float, default=time.time)
+
+
+class Skill(Base):
+    __tablename__ = "skills"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: new_id("sk_"))
+    name: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    tags: Mapped[list] = mapped_column(JSON, default=list)
+    tools_used: Mapped[list] = mapped_column(JSON, default=list)
+    author: Mapped[str] = mapped_column(String(16), default="agent")
+    path: Mapped[str] = mapped_column(String(512))
+    created_from_run: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    reads: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[float] = mapped_column(Float, default=time.time)
+    updated_at: Mapped[float] = mapped_column(Float, default=time.time)
+
+
+class Plugin(Base):
+    """luma_engine extensions in toolbox/plugins/ (fx, templates, audio instruments, QC checks)."""
+
+    __tablename__ = "plugins"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: new_id("pl_"))
+    name: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    kind: Mapped[str] = mapped_column(String(16))  # fx | template | instrument | qc_check
+    version: Mapped[str] = mapped_column(String(32), default="1.0.0")
+    enabled: Mapped[bool] = mapped_column(Integer, default=0)
+    test_status: Mapped[str] = mapped_column(String(16), default="untested")
+    test_output: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    author: Mapped[str] = mapped_column(String(16), default="agent")
+    path: Mapped[str] = mapped_column(String(512))
+    meta: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_from_run: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[float] = mapped_column(Float, default=time.time)
+    updated_at: Mapped[float] = mapped_column(Float, default=time.time)
+
+
+class ToolboxAudit(Base):
+    """Who changed what in the GLOBAL toolbox, when, from which run."""
+
+    __tablename__ = "toolbox_audit"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    actor: Mapped[str] = mapped_column(String(120))  # user:<name> | agent:<run id> | system
+    action: Mapped[str] = mapped_column(String(32))
+    target: Mapped[str] = mapped_column(String(200))
+    run_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    detail: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[float] = mapped_column(Float, default=time.time)
+
+
 _engine = None
 _Session: sessionmaker | None = None
 write_lock = threading.RLock()

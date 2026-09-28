@@ -14,6 +14,13 @@ chmod 700 "$DATA/secrets" 2>/dev/null || true
 for f in "$DATA"/studio.db "$DATA"/studio.db-wal "$DATA"/studio.db-shm; do
   [ -e "$f" ] && chown studio:studio "$f" && chmod 600 "$f"
 done
+# toolbox (global tools / skills / plugins: written by the backend, readable by the sandbox), the persistent
+# tool venv and downloaded binaries (written by the sandbox user: pip installs run as luma)
+mkdir -p "$DATA/toolbox" "$DATA/venv" "$DATA/opt" "$DATA/git"
+chown studio:lumawork "$DATA/toolbox" && chmod 2755 "$DATA/toolbox"
+chown -R luma:lumawork "$DATA/venv" "$DATA/opt" 2>/dev/null || true
+chmod 2775 "$DATA/venv" "$DATA/opt"
+chown studio:studio "$DATA/git" && chmod 700 "$DATA/git"
 # project workspaces created by earlier versions / other uids
 find "$DATA/projects" -maxdepth 1 -mindepth 1 -type d ! -group lumawork -exec chgrp -R lumawork {} + 2>/dev/null || true
 find "$DATA/projects" -type d ! -perm -2070 -exec chmod g+rwxs {} + 2>/dev/null || true

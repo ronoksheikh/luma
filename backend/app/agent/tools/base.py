@@ -4,16 +4,14 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
-from ...config import config
 from ...events import Coalescer, bus
 from ...secrets_store import Credentials, redact
-from ...terminal import sandbox_argv, sandbox_env
+from ...terminal import sandbox_argv, sandbox_env, sandbox_python
 
 MAX_TOOL_CHARS = 12000
 HEAD_CHARS = 4000
@@ -45,6 +43,8 @@ class ToolContext:
     tool_call_id: str = ""
     coalescer: Coalescer | None = None
     el_budget: Any = None
+    agent: Any = None  # the AgentLoop (toolbox tools use it for ctx.call_tool RPC through the budgeted tool layer)
+    rpc_depth: int = 0
 
     def url(self, rel: str) -> str:
         return f"/api/files/{self.project_id}/{rel}"
@@ -120,7 +120,7 @@ def truncate(text: str, ctx: ToolContext | None = None, label: str = "output") -
 async def run_engine(ctx: ToolContext, args: list[str], timeout: float = 900, stream: bool = True, cwd: Path | None = None) -> tuple[int, str, list[dict]]:
     """Run ``python -m luma_engine <args>`` as the sandbox user (agent code is never
     executed in the backend process).  Returns (exit code, text output, JSON objects)."""
-    py = config.sandbox_python or sys.executable
+    py = sandbox_python()
     env = sandbox_env(str(cwd or ctx.pdir))
     argv = sandbox_argv([py, "-m", "luma_engine", *args], env)
     proc = await asyncio.create_subprocess_exec(*argv, cwd=str(cwd or ctx.pdir), env=env, stdout=asyncio.subprocess.PIPE,

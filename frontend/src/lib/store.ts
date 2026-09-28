@@ -51,6 +51,10 @@ type State = {
   notify: (text: string, tone?: "ok" | "bad" | "info") => void;
   mainView: "chat" | "inspector";
   setMainView: (v: "chat" | "inspector") => void;
+  toolboxView: string;
+  openToolbox: (view?: string) => void;
+  templatesOpen: boolean;
+  setTemplatesOpen: (v: boolean) => void;
 };
 
 export const useStore = create<State>((set, get) => ({
@@ -79,6 +83,13 @@ export const useStore = create<State>((set, get) => ({
   rightTab: localStorage.getItem("luma.rightTab") || "preview",
   mainView: "chat",
   setMainView: (v) => set({ mainView: v }),
+  toolboxView: "tools",
+  openToolbox: (view) => {
+    localStorage.setItem("luma.rightTab", "toolbox");
+    set({ rightTab: "toolbox", mainView: "inspector", navOpen: false, ...(view ? { toolboxView: view } : {}) });
+  },
+  templatesOpen: false,
+  setTemplatesOpen: (v) => set({ templatesOpen: v }),
   setKeys: (k) => {
     const keys = { ...get().keys, ...k };
     saveKeys(keys);

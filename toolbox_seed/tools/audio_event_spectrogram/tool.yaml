@@ -1,0 +1,35 @@
+name: audio_event_spectrogram
+version: 1.0.0
+scope: global
+description: >-
+  Checks sound design against the picture: renders a waveform + log-frequency spectrogram with the timeline's event
+  markers, detects audio onsets and reports each event's offset to the nearest onset (pass when within the tolerance,
+  default 2 frames). Use it on a mixed WAV (or the final MP4) with the scene's events.json.
+parameters:
+  type: object
+  properties:
+    audio: {type: string, description: WAV / MP4 / any audio ffmpeg can read}
+    events: {type: [string, array], description: 'events.json path, or [{t, name}]'}
+    fps: {type: number, default: 60}
+    tolerance_frames: {type: number, default: 2}
+    onset_threshold: {type: number, default: 0.3}
+    only_named: {type: array, items: {type: string}, description: 'check only these event names'}
+  required: [audio, events]
+  additionalProperties: false
+returns:
+  type: object
+  properties:
+    pass: {type: boolean}
+    events: {type: array}
+    onsets: {type: array}
+    tolerance_ms: {type: number}
+    spectrogram: {type: string}
+  required: [pass, events, spectrogram]
+dependencies: []
+timeout_s: 180
+resources: {max_memory_mb: 1536}
+network: false
+produces_files: true
+tags: [audio, sync, qc, spectrogram, sound-design]
+author: user
+created_from_run: null

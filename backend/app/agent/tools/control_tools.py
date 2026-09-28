@@ -34,7 +34,47 @@ def _finish_gate(ctx: ToolContext, items: list) -> list[str]:
                 unmet.append(f"present the final video {rel} with present_video (with chapters) before finishing")
         elif not any(t in ("file", "image", "audio", "code") and path == rel for t, path in presented):
             unmet.append(f"present the deliverable {rel} with present_file")
+    hard = _hard_run(ctx)
+    if hard and not _events_of(ctx.run_id, ("skill_written",)):
+        unmet.append(f"this was a hard job ({hard}) — record what you learned with skill_write (When to use, Steps, Pitfalls, "
+                     "Verification, Example) or update the skill you followed, so future runs start from it")
     return unmet
+
+
+def _events_of(run_id: str, types: tuple[str, ...]) -> list[dict]:
+    from sqlalchemy import select
+
+    from ... import db
+
+    with db.session() as s:
+        return [e.data for e in s.scalars(select(db.Event).where(db.Event.run_id == run_id, db.Event.type.in_(types)))]
+
+
+def _hard_run(ctx: ToolContext) -> str | None:
+    """Many iterations or a discovered pitfall: many steps, a tool rewritten several times, or a tool that broke."""
+    from ... import db
+
+    limit = int(ctx.settings.get("skill_required_after_steps", 60) or 0)
+    if not limit:
+        return None
+    with db.session() as s:
+        steps = s.get(db.Run, ctx.run_id).steps
+    if steps > limit:
+        return f"{steps} steps"
+    ups = _events_of(ctx.run_id, ("tool_updated",))
+    if len(ups) >= 3:
+        return f"{len(ups)} tool revisions"
+    if _events_of(ctx.run_id, ("tool_disabled",)):
+        return "a toolbox tool failed repeatedly"
+    return None
+
+
+def _promotion_hint(ctx: ToolContext) -> str:
+    made = {e.get("name") for e in _events_of(ctx.run_id, ("tool_registered",)) if e.get("scope") == "project"}
+    promoted = {e.get("name") for e in _events_of(ctx.run_id, ("tool_promoted",))}
+    left = sorted(n for n in made - promoted if n)
+    return (f"\nProject tools from this run that other projects could use: {', '.join(left)} — propose tool_promote for the useful ones "
+            "(the user approves).") if left else ""
 
 
 OUTPUT_KINDS = {".mp4": "mp4", ".mov": "prores", ".png": "end_card", ".srt": "srt", ".zip": "source_zip", ".wav": "audio", ".json": "qc"}
@@ -255,4 +295,14 @@ async def finish(ctx: ToolContext, a: dict) -> ToolOutput:
         ctx.emit("artifact", {"kind": kind, "path": rel, "url": ctx.url(rel), "final": True})
     summary = str(a.get("summary") or "")
     ctx.runner.finished[ctx.run_id] = {"summary": summary, "outputs": listed}
-    return ToolOutput(json.dumps({"delivered": listed}, indent=1), finish=True, ui={"outputs": listed, "summary": summary})
+    hint = _promotion_hint(ctx)
+    if hint:  # the run ends here, so the proposal goes to the user as a notification
+        from ... import db
+
+        with db.session() as s:
+            n = db.Notification(project_id=ctx.project_id, run_id=ctx.run_id, level="info", message=hint.strip())
+            s.add(n)
+            s.flush()
+            nid = n.id
+        ctx.emit("notify", {"id": nid, "message": hint.strip(), "level": "info"})
+    return ToolOutput(json.dumps({"delivered": listed}, indent=1) + hint, finish=True, ui={"outputs": listed, "summary": summary})
