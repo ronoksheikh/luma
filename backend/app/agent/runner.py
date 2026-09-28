@@ -33,6 +33,7 @@ class RunManager:
         self.compact_requests: dict[str, str] = {}
         self._resuming: set[str] = set()
         self.pending_request: dict[str, str] = {}
+        self.children: dict[str, set[str]] = {}  # parent run → live sub-agent runs
         self.started_at: dict[str, float] = {}
         self.render_rate: dict[str, float] = {}  # measured seconds per full-size frame (from previews)
         self.crossed: dict[tuple, float] = {}  # when a run crossed its cost/time approval thresholds
@@ -284,6 +285,11 @@ class RunManager:
         run = self.get(run_id)
         if run is None:
             raise KeyError(run_id)
+        for child in list(self.children.get(run_id, ())):  # sub-agents are cancelled with their parent
+            try:
+                await self.cancel(child)
+            except KeyError:
+                pass
         t = self.tasks.get(run_id)
         killed = await asyncio.to_thread(jobs.kill_run, run_id)
         term = terminals.get(run.project_id, create=False)

@@ -6,6 +6,37 @@ import zipfile
 
 from .base import ToolContext, ToolError, ToolOutput, tool
 
+def _finish_gate(ctx: ToolContext, items: list) -> list[str]:
+    """Delivery requires: every todo done (or skipped with a reason), a passing QC report, the final video
+    presented with present_video and the other deliverables presented (present_file / present_image)."""
+    from sqlalchemy import select
+
+    from ... import db, plan, review
+
+    unmet = []
+    open_ = [t for t in plan.leaves(plan.todos(ctx.run_id)) if t["status"] not in ("done", "skipped")]
+    if open_:
+        unmet.append("open plan items: " + "; ".join(f"{t['id']} {t['title']} ({t['status']})" for t in open_[:12]) +
+                     " — finish them with evidence or skip them with a reason")
+    qc, qc_path = review.latest_qc(ctx.pdir)
+    if qc is None:
+        unmet.append("no QC report — run qc_report on the final MP4")
+    elif not qc.get("pass"):
+        failed = [c["name"] for c in qc.get("checks", []) if not c.get("pass") and c.get("severity", "error") != "warning"]
+        unmet.append(f"the latest QC report ({qc_path}) fails: {', '.join(failed)}")
+    with db.session() as s:
+        arts = list(s.scalars(select(db.Artifact).where(db.Artifact.run_id == ctx.run_id)))
+    presented = {(a.type, a.path) for a in arts}
+    for p in items:
+        rel = ctx.rel(p)
+        if p.suffix.lower() in (".mp4", ".mov"):
+            if ("video", rel) not in presented:
+                unmet.append(f"present the final video {rel} with present_video (with chapters) before finishing")
+        elif not any(t in ("file", "image", "audio", "code") and path == rel for t, path in presented):
+            unmet.append(f"present the deliverable {rel} with present_file")
+    return unmet
+
+
 OUTPUT_KINDS = {".mp4": "mp4", ".mov": "prores", ".png": "end_card", ".srt": "srt", ".zip": "source_zip", ".wav": "audio", ".json": "qc"}
 
 
@@ -188,6 +219,9 @@ async def finish(ctx: ToolContext, a: dict) -> ToolOutput:
         items.append(p)
     if not any(p.suffix.lower() == ".mp4" for p in items):
         raise ToolError("outputs must include the final .mp4")
+    unmet = _finish_gate(ctx, items)
+    if unmet:
+        raise ToolError("Not ready to finish:\n- " + "\n- ".join(unmet) + "\nFix these, then call finish again.")
     out_dir = ctx.pdir / "outputs"
     out_dir.mkdir(exist_ok=True)
     # scene source zip

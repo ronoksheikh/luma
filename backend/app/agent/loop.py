@@ -101,10 +101,21 @@ class AgentLoop:
         with db.session() as s:
             p = s.get(db.Project, project_id)
             self.settings["project"] = {**DEFAULT_PROJECT_SETTINGS, **(p.settings or {})}
+        with db.session() as s:
+            self.limits = (s.get(db.Run, run_id).limits or None)
+        self.is_child = bool(self.limits)
+        if self.is_child:  # sub-agent: its own step / cost / ElevenLabs budget
+            self.settings["max_steps"] = self.limits["max_steps"]
+            self.settings["max_cost_usd"] = self.limits["max_cost_usd"]
+            self.settings["el_char_budget"] = self.limits["max_el_chars"]
         caps = model_caps(creds.llm_base_url, creds.llm_model)
         self.vision = bool(caps.get("vision"))
         self.client = make_client(creds)
-        self.tools = available_tools(el_enabled=creds.has_elevenlabs, project_settings=self.settings["project"])
+        if self.is_child:
+            self.tools = available_tools(el_enabled=creds.has_elevenlabs, project_settings={**self.settings["project"], "subagent_child": True},
+                                         only=self.limits["tools"])
+        else:
+            self.tools = available_tools(el_enabled=creds.has_elevenlabs, project_settings=self.settings["project"])
         self.coal = Coalescer(run_id)
         self.el_budget = ElBudget(run_id, self.settings.get("el_char_budget", 5000))
         self.include_usage = True
@@ -128,8 +139,13 @@ class AgentLoop:
         return f"available ({', '.join(on) or 'untested'}); remaining character budget this run: {self.el_budget.remaining()}"
 
     def system_prompt(self) -> str:
-        return director_prompt() + "\n\n" + C.pinned_facts(self.project_id, self.pdir, self._el_status(), self.vision) + \
+        base = director_prompt() + "\n\n" + C.pinned_facts(self.project_id, self.pdir, self._el_status(), self.vision) + \
             C.pinned_long_job(self.run_id, self.project_id, self.pdir)
+        if self.is_child:
+            base += ("\n\n## You are a sub-agent\nThe director delegated ONE task to you (first user message). You cannot talk to the user, "
+                     "deliver or spawn agents; you share the workspace, so write into your own subfolder of work/ unless told otherwise. "
+                     "End with subagent_report (structured result + summary + artifact ids).")
+        return base
 
     # ------------------------------------------------------------------------------------
     async def run(self) -> None:
@@ -379,7 +395,7 @@ class AgentLoop:
     def _gate(self, name: str, args: dict) -> None:
         """Expensive actions need the user's sign-off (request_approval) unless the project is on Autopilot."""
         st = self.settings.get("project", {})
-        if st.get("autopilot"):
+        if st.get("autopilot") or self.is_child:  # a sub-agent runs under its parent's approved spawn
             return
         reasons: list[str] = []
         since = B.last_user_message_at(self.run_id)

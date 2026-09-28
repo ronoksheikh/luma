@@ -92,3 +92,12 @@ Legend: `[x]` done **and verified by running it**, `[~]` done with a caveat note
 - [x] `render_queue_status` / `render_queue_cancel`, `budget_status`
 - [x] `web_fetch` / `web_search` only when the project enables web access; SSRF guard; results labelled UNTRUSTED and shown as source cards
 - [~] `install_font` by Google Fonts family and `web_search` against DuckDuckGo were tested against local stand-ins only (no internet in the test environment)
+
+## P2.5 — self-review & quality gates
+- [x] `prompts/checklists/{brand_fidelity,motion_quality,audio_quality,delivery}.md`; `self_review` measures the automated items (QC checks, avoided/brand colours in the final frame, springs/motion blur in scene code, clean audio edges, formats, file names, presented) and lists manual items; results presented as a table artifact
+- [x] failing `qc_report` checks become `blocked` todos under "Fix QC failures" (acceptance = that check passes) and close themselves when a later report passes
+- [x] `finish` gate: open todos, missing/failing QC, final video not presented with `present_video`, deliverables not presented → rejected with every reason
+- [x] mocked-LLM end-to-end run: plan → storyboard → approval → render (1080×1080, 72 frames) → QC → present video (chapters) + file → self-review → finish (test)
+
+## P2.6 — sub-agents
+- [x] `spawn_subagent(task, tools_allowed, budget)`: child run (`parent_run_id`, `limits`) with its own context, a restricted toolset (never finish/ask/spawn), own step/cost/ElevenLabs budget, `subagent_report` result; `subagent_start` / `subagent_end` events; per-project concurrency cap; child cost added to the parent; cancelled with the parent (tests); off unless the project enables sub-agents

@@ -367,4 +367,12 @@ async def qc_report(ctx: ToolContext, a: dict) -> ToolOutput:
     rel = ctx.rel(report_p)
     ctx.emit("artifact", {"kind": "qc", "path": rel, "url": ctx.url(rel), "pass": rep.get("pass")})
     compact = {"pass": rep["pass"], "checks": [{k: c[k] for k in ("name", "pass", "value", "expected", "detail")} for c in rep["checks"]]}
-    return ToolOutput(truncate(json.dumps(compact, indent=1, default=str), ctx, "qc"), status="success", ui={"qc": compact})
+    from ...review import sync_qc_todos
+
+    sync = await asyncio.to_thread(sync_qc_todos, ctx.run_id, ctx.project_id, rep, rel)
+    note = ""
+    if sync["created"]:
+        note += f"\n{len(sync['created'])} failing check(s) were added to the plan as BLOCKED items under 'Fix QC failures' — fix them and re-run qc_report."
+    if sync["closed"]:
+        note += f"\n{len(sync['closed'])} QC item(s) in the plan were closed: those checks pass now."
+    return ToolOutput(truncate(json.dumps(compact, indent=1, default=str), ctx, "qc") + note, status="success", ui={"qc": compact})
