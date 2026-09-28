@@ -203,3 +203,64 @@ async def resume_run(run_id: str, request: Request):
     except ValueError as e:
         raise HTTPException(409, str(e)) from None
     return {**res, "run": run_json(runs.get(run_id))}
+
+
+# ------------------------------------------------------------------------------ artifacts
+from . import artifacts  # noqa: E402
+
+
+@router.get("/api/projects/{project_id}/artifacts")
+def list_artifacts(project_id: str, run_id: str | None = None):
+    get_project(project_id)
+    return artifacts.list_(project_id, run_id)
+
+
+@router.get("/api/projects/{project_id}/artifacts/versions/{group}")
+def artifact_versions(project_id: str, group: str):
+    get_project(project_id)
+    return artifacts.versions(project_id, group)
+
+
+def _own_artifact(artifact_id: str) -> dict:
+    try:
+        a = artifacts.get(artifact_id)
+    except artifacts.ArtifactError:
+        raise HTTPException(404, "artifact not found") from None
+    get_project(a["project_id"])
+    return a
+
+
+class ArtifactPatch(BaseModel):
+    title: str | None = Field(None, min_length=1, max_length=300)
+    favorite: bool | None = None
+
+
+@router.patch("/api/artifacts/{artifact_id}")
+def patch_artifact(artifact_id: str, body: ArtifactPatch):
+    _own_artifact(artifact_id)
+    return artifacts.update(artifact_id, body.title, body.favorite)
+
+
+@router.delete("/api/artifacts/{artifact_id}")
+def delete_artifact(artifact_id: str):
+    _own_artifact(artifact_id)
+    artifacts.delete(artifact_id)
+    return {"deleted": artifact_id}
+
+
+@router.get("/api/projects/{project_id}/artifacts.zip")
+async def artifacts_zip(project_id: str, favorites: bool = False):
+    import tempfile
+
+    from fastapi.responses import FileResponse
+    from starlette.background import BackgroundTask
+
+    import os
+    from pathlib import Path
+
+    p = get_project(project_id)
+    fd, tmp = tempfile.mkstemp(suffix=".zip")
+    os.close(fd)
+    await asyncio.to_thread(artifacts.zip_all, project_id, Path(tmp), favorites)
+    name = "".join(c if c.isalnum() or c in "-_" else "_" for c in p.name)[:60] or "artifacts"
+    return FileResponse(tmp, media_type="application/zip", filename=f"{name}_artifacts.zip", background=BackgroundTask(os.remove, tmp))

@@ -54,7 +54,7 @@ class LogoKit:
     wordmark_color: str | None = None
     background: str = "#0B0F2A"
     split_single: int = 5
-    arrangement: str = "horizontal"
+    arrangement: str = "auto"  # horizontal when it fits the title-safe area, else symbol above wordmark
     symbol_height: float | None = None
     stage_height: float | None = None
     doc: SVGDocument = field(init=False)

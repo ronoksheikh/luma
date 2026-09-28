@@ -13,7 +13,24 @@
   templates
   demo      --out DIR [--workers N] [--width 1920 --height 1080 --fps 60 --duration 5]
 
-Scene overrides: --width --height --fps --duration apply to any SCENE command.
+Production:
+  probe     FILE                                   ffprobe as clean JSON
+  frames    VIDEO --out DIR (--times 0,1.5 | --every N)   frames + contact sheet
+  gif       VIDEO --out prev.gif|prev.webp [--start 0 --end 2 --width 640 --fps 15]
+  thumb     VIDEO --out thumb.png [--time T --width W]
+  stills    SCENE --times 0,1.2 --out DIR [--scale 1]
+  endcard   SCENE --out DIR --sizes 1920x1080,1080x1920 [--time T]
+  reframe-check SCENE --out DIR --aspects 16:9,9:16,1:1,4:5 [--long-side 1920]
+  vectorize IMAGE --out logo.svg [--mode color|binary]
+  palette   FILE [--k 8]
+  fonts     FILE.pdf|png
+  mix       --tracks tracks.json --out mix.wav [--lufs -14 --tp -1 --duration D]
+  captions  WORDS.json --out BASE [--style style.json]
+  peaks     AUDIO [--buckets 600]
+
+Scene overrides: --width --height --fps --duration apply to any SCENE command, and
+--set key=value (repeatable, JSON values) sets any scene attribute before setup
+(e.g. --set spring_freq=2.4 --set background='"#101820"').
 """
 from __future__ import annotations
 
@@ -33,7 +50,16 @@ def _ints(s):
 
 
 def _overrides(a) -> dict:
-    return {k: getattr(a, k) for k in ("width", "height", "fps", "duration") if getattr(a, k, None) is not None}
+    out = {k: getattr(a, k) for k in ("width", "height", "fps", "duration") if getattr(a, k, None) is not None}
+    for kv in getattr(a, "set", None) or []:
+        if "=" not in kv:
+            raise SystemExit(f"--set expects key=value, got {kv!r}")
+        k, v = kv.split("=", 1)
+        try:
+            out[k.strip()] = json.loads(v)
+        except ValueError:
+            out[k.strip()] = v
+    return out
 
 
 def _add_overrides(p):
@@ -41,6 +67,7 @@ def _add_overrides(p):
     p.add_argument("--height", type=int)
     p.add_argument("--fps", type=float)
     p.add_argument("--duration", type=float)
+    p.add_argument("--set", action="append", metavar="KEY=VALUE", help="scene attribute override (JSON value)")
 
 
 def main(argv=None) -> int:
@@ -130,6 +157,7 @@ def main(argv=None) -> int:
     p.add_argument("--wordmark", default="Veyra")
     _add_overrides(p)
 
+    _production_parsers(sub)
     a = ap.parse_args(argv)
     out = run(a)
     if out is not None:
@@ -221,7 +249,99 @@ def run(a):
         return {k: v for k, v in TEMPLATES.items()}
     if a.cmd == "demo":
         return demo(a.out, a.workers, a.logo, a.wordmark, _overrides(a))
+    if a.cmd in PRODUCTION:
+        return PRODUCTION[a.cmd](a)
     raise SystemExit(f"unknown command {a.cmd}")
+
+
+def _production_parsers(sub):
+    p = sub.add_parser("probe")
+    p.add_argument("file")
+    p = sub.add_parser("frames")
+    p.add_argument("video")
+    p.add_argument("--out", required=True)
+    p.add_argument("--times")
+    p.add_argument("--every", type=int)
+    p = sub.add_parser("gif")
+    p.add_argument("video")
+    p.add_argument("--out", required=True)
+    p.add_argument("--start", type=float, default=0.0)
+    p.add_argument("--end", type=float)
+    p.add_argument("--width", type=int, default=640)
+    p.add_argument("--fps", type=float, default=15)
+    p = sub.add_parser("thumb")
+    p.add_argument("video")
+    p.add_argument("--out", required=True)
+    p.add_argument("--time", type=float)
+    p.add_argument("--width", type=int)
+    p = sub.add_parser("stills")
+    p.add_argument("scene")
+    p.add_argument("--times", required=True)
+    p.add_argument("--out", required=True)
+    p.add_argument("--scale", type=float, default=1.0)
+    p.add_argument("--blur", action="store_true")
+    _add_overrides(p)
+    p = sub.add_parser("endcard")
+    p.add_argument("scene")
+    p.add_argument("--out", required=True)
+    p.add_argument("--sizes", default="1920x1080")
+    p.add_argument("--time", type=float)
+    p = sub.add_parser("reframe-check")
+    p.add_argument("scene")
+    p.add_argument("--out", required=True)
+    p.add_argument("--aspects", default="16:9,9:16,1:1,4:5")
+    p.add_argument("--long-side", type=int, default=1920)
+    p = sub.add_parser("vectorize")
+    p.add_argument("image")
+    p.add_argument("--out", required=True)
+    p.add_argument("--mode", default="color", choices=["color", "binary"])
+    p = sub.add_parser("palette")
+    p.add_argument("file")
+    p.add_argument("--k", type=int, default=8)
+    p = sub.add_parser("fonts")
+    p.add_argument("file")
+    p = sub.add_parser("mix")
+    p.add_argument("--tracks", required=True, help="JSON file or inline JSON list")
+    p.add_argument("--out", required=True)
+    p.add_argument("--lufs", type=float, default=-14.0)
+    p.add_argument("--tp", type=float, default=-1.0)
+    p.add_argument("--duration", type=float)
+    p = sub.add_parser("captions")
+    p.add_argument("words")
+    p.add_argument("--out", required=True, help="output base path (…/captions → .srt .vtt .kinetic.json)")
+    p.add_argument("--style", help="JSON file or inline JSON object")
+    p = sub.add_parser("peaks")
+    p.add_argument("audio")
+    p.add_argument("--buckets", type=int, default=600)
+
+
+def _json_arg(v):
+    if v is None:
+        return None
+    return json.loads(Path(v).read_text()) if os.path.exists(v) else json.loads(v)
+
+
+def _p():
+    from . import production
+
+    return production
+
+
+PRODUCTION = {
+    "probe": lambda a: _p().media_probe(a.file),
+    "frames": lambda a: _p().extract_frames(a.video, a.out, _floats(a.times), a.every),
+    "gif": lambda a: _p().make_gif_or_webp(a.video, a.out, a.start, a.end, a.width, a.fps),
+    "thumb": lambda a: {"path": _p().make_thumbnail(a.video, a.out, a.time, a.width)},
+    "stills": lambda a: {"stills": _p().render_stills(a.scene, _floats(a.times), a.out, a.scale, _overrides(a), a.blur)},
+    "endcard": lambda a: {"cards": _p().export_end_card(a.scene, a.out, [x for x in a.sizes.split(",") if x], a.time)},
+    "reframe-check": lambda a: {"aspects": _p().reframe_check(a.scene, [x for x in a.aspects.split(",") if x], a.out, a.long_side)},
+    "vectorize": lambda a: _p().vectorize_raster(a.image, a.out, a.mode),
+    "palette": lambda a: _p().extract_palette(a.file, a.k),
+    "fonts": lambda a: _p().detect_fonts(a.file),
+    "mix": lambda a: _p().audio_mix(_json_arg(a.tracks), a.out, a.lufs, a.tp, a.duration),
+    "captions": lambda a: _p().captions_build(a.words, a.out, _json_arg(a.style)),
+    "peaks": lambda a: _p().waveform_peaks(a.audio, a.buckets),
+}
 
 
 def demo(out_dir: str, workers: int | None = None, logo: str | None = None, wordmark: str = "Veyra", overrides: dict | None = None) -> dict:

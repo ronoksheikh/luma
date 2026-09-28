@@ -70,3 +70,9 @@ Legend: `[x]` done **and verified by running it**, `[~]` done with a caveat note
 - [x] checkpoints with git outside the workspace (`/data/git/<project>`), state.json (brief, settings, plan); auto after renders; restore makes a safety checkpoint first; REST + tools
 - [x] resume: dangling tool calls closed, live jobs re-attached, lost renders re-queued (resume skips finished frames), stale requests cancelled, a system note explains it — tested with a simulated restart mid-render
 - [x] `context_compact` + automatic compaction at 75 %; structured digest; pinned plan/memory/settings/brand/events/notes/user requests never dropped (test)
+
+## P2.2 — presentation & artifacts
+- [x] `artifacts` table with `version_group` / `version` (re-presenting creates v2, v3…), favourite, rename, delete, zip of all (or favourites) — REST + tests
+- [x] `present_video` (probe, chapters validated against the duration, poster frame, loop), `present_image` (single/grid/carousel), `present_audio` (waveform peaks, word timings for highlighting, LUFS/TP), `present_file` (text/JSON/SRT/code/zip/PDF/media previews), `present_comparison` (artifact ids or paths, video/image, slider/side-by-side/toggle), `present_storyboard` (stills rendered from the scene in the sandbox, or given frames), `present_timeline` (events.json → picture/audio tracks, linked video), `present_code` (language + highlighted lines), `present_table`, `present_palette` (contrast ratios) — each emits a typed `present` event + an `artifact` event
+- [x] engine `luma_engine.production` + CLI (`probe frames gif thumb stills endcard reframe-check vectorize palette fonts mix captions peaks`), `--set key=value` scene overrides
+- [x] per-aspect lockup rules in `layout.build_lockup` (auto horizontal/vertical, fit to title-safe) so templates re-lay out for 9:16 / 1:1 / 4:5 instead of cropping (engine tests still pass)

@@ -1,5 +1,5 @@
 """Director tools. Importing this package registers every tool."""
-from . import control_tools, file_tools, media_tools, plan_tools, terminal_tools  # noqa: F401
+from . import control_tools, file_tools, media_tools, plan_tools, present_tools, terminal_tools  # noqa: F401
 from .base import REGISTRY, Tool
 
 try:

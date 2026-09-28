@@ -84,24 +84,57 @@ class LockupResult:
     wordmark_box: Box | None
     box: Box
     extras: dict = field(default_factory=dict)
+    arrangement: str = "horizontal"
 
 
 def build_lockup(symbol_bounds, frame_w: int, frame_h: int, wordmark_bounds=None, *, arrangement: str = "horizontal",
                  symbol_height: float | None = None, gap: float = 0.35, wordmark_cap_height: float | None = None,
-                 wordmark_scale: float | None = None, center=None, optical_offset: float = 0.0) -> LockupResult:
+                 wordmark_scale: float | None = None, center=None, optical_offset: float = 0.0, fit_safe: bool = True) -> LockupResult:
     """Place a symbol (and optional wordmark) as a centred lockup.
 
     ``symbol_bounds`` / ``wordmark_bounds`` are (x0, y0, x1, y1) in their own source spaces.
     ``gap`` is a fraction of the symbol height.  For horizontal lockups the wordmark is
     scaled so its *cap height* equals ``wordmark_cap_height`` (default 42 % of the symbol
     height) and vertically centred on the symbol, which reads optically centred.
+
+    Per-aspect rules (so the same scene re-lays out for 16:9, 9:16, 1:1 and 4:5 instead of
+    being cropped): with ``arrangement="auto"`` a horizontal lockup that would have to shrink
+    below 75 % to fit the title-safe area becomes vertical (symbol above wordmark); with
+    ``fit_safe`` the lockup is scaled down to fit the title-safe area and centred in it.
     """
+    safe = safe_area(frame_w, frame_h, "title")
+    if center is None:
+        center = (safe.x + safe.w / 2, safe.y + safe.h / 2) if fit_safe else (frame_w / 2, frame_h / 2)
+    target_h = symbol_height if symbol_height is not None else frame_h * (0.28 if wordmark_bounds is not None else 0.36)
+
+    def place(arr, sym_h):
+        k = sym_h / target_h  # explicit wordmark scales / cap heights shrink with the lockup
+        return _place(symbol_bounds, wordmark_bounds, arr, sym_h, gap, None if wordmark_cap_height is None else wordmark_cap_height * k,
+                      None if wordmark_scale is None else wordmark_scale * k, center, optical_offset)
+
+    def fit(res):
+        return min(1.0, safe.w / max(res.box.w, 1e-9), safe.h / max(res.box.h, 1e-9)) if fit_safe else 1.0
+
+    arr = "horizontal" if arrangement == "auto" else arrangement
+    res = place(arr, target_h)
+    f = fit(res)
+    if arrangement == "auto" and wordmark_bounds is not None and f < 0.75:
+        alt = place("vertical", target_h)
+        fa = fit(alt)
+        if fa > f:
+            arr, res, f = "vertical", alt, fa
+    if f < 1.0:
+        res = place(arr, target_h * f * 0.999)
+    res.arrangement = arr
+    return res
+
+
+def _place(symbol_bounds, wordmark_bounds, arrangement, target_h, gap, wordmark_cap_height, wordmark_scale, center, optical_offset) -> LockupResult:
     sx0, sy0, sx1, sy1 = symbol_bounds
     sw, sh = sx1 - sx0, sy1 - sy0
-    target_h = symbol_height if symbol_height is not None else frame_h * (0.28 if wordmark_bounds is not None else 0.36)
     s_sym = target_h / sh
     sym_w, sym_h = sw * s_sym, sh * s_sym
-    cx, cy = center if center is not None else (frame_w / 2, frame_h / 2)
+    cx, cy = center
     if wordmark_bounds is None:
         x = cx - sym_w / 2
         y = cy - sym_h / 2
@@ -112,8 +145,10 @@ def build_lockup(symbol_bounds, frame_w: int, frame_h: int, wordmark_bounds=None
     ww, wh = wx1 - wx0, wy1 - wy0
     if wordmark_scale is None:
         cap = wordmark_cap_height if wordmark_cap_height is not None else 0.42 * sym_h
-        wordmark_scale = cap / wh
-    wW, wH = ww * wordmark_scale, wh * wordmark_scale
+        wscale = cap / wh
+    else:
+        wscale = wordmark_scale
+    wW, wH = ww * wscale, wh * wscale
     g = gap * sym_h
     if arrangement == "vertical":
         total_h = sym_h + g + wH
@@ -128,7 +163,7 @@ def build_lockup(symbol_bounds, frame_w: int, frame_h: int, wordmark_bounds=None
         wm_x, wm_y = left + sym_w + g, cy - wH / 2
         box = Box(left, min(sym_y, wm_y), total_w, max(sym_h, wH))
     Ms = m_translate(sym_x, sym_y) @ m_scale(s_sym) @ m_translate(-sx0, -sy0)
-    Mw = m_translate(wm_x, wm_y) @ m_scale(wordmark_scale) @ m_translate(-wx0, -wy0)
+    Mw = m_translate(wm_x, wm_y) @ m_scale(wscale) @ m_translate(-wx0, -wy0)
     return LockupResult(Ms, Mw, Box(sym_x, sym_y, sym_w, sym_h), Box(wm_x, wm_y, wW, wH), box)
 
 
