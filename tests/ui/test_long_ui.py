@@ -80,6 +80,9 @@ def test_long_job_ui(server, browser, setup):
     shot(page, "delivered")
     page.locator("[data-testid=card-timeline]").scroll_into_view_if_needed()
     shot(page, "timeline_card")
+    for t in ("palette", "code", "file", "table", "storyboard"):
+        page.locator(f"[data-testid=card-{t}]").first.scroll_into_view_if_needed()
+        shot(page, f"card_{t}")
 
     # --- memory, checkpoints, notifications, palette
     page.get_by_role("button", name="More panels").click()
@@ -104,6 +107,11 @@ def test_long_job_ui(server, browser, setup):
     page.get_by_role("textbox", name="Message the director").fill("Try a deeper night background")
     page.get_by_role("button", name="Send").click()
     page.get_by_text("v2 is on the shelf").wait_for(timeout=600000)
+    page.locator("[data-testid=card-grid]").first.scroll_into_view_if_needed()
+    assert page.locator("[data-testid=card-grid]").first.locator("img").count() == 2
+    shot(page, "card_grid")
+    page.locator("[data-testid=card-image]").last.scroll_into_view_if_needed()
+    shot(page, "card_reframe")
     page.get_by_role("tab", name="Artifacts").click()
     panel = page.locator("[data-testid=artifacts-panel]")
     tile = panel.locator("[data-testid=artifact-tile]", has_text="Veyra outro").first
@@ -140,3 +148,58 @@ def test_keyboard_approve(server, browser, setup):
         time.sleep(0.5)
     assert c.get(f"/api/runs/{r['id']}/requests").json()[0]["answer"]["choice"] == "Approve"
     ctx.close()
+
+
+def test_subagents_and_settings_ui(server, browser, setup):
+    """Sub-agent cards expand into nested timelines; collaboration settings are editable."""
+    import json
+    import re
+
+    from mock_llm import MockServer, call
+
+    c = setup["client"]
+    p = c.post("/api/projects", json={"name": "Voice options"}).json()
+    c.patch(f"/api/projects/{p['id']}", json={"settings": {**p["settings"], "subagents": True}})
+
+    def brain(body):
+        sysmsg = body["messages"][0]["content"]
+        tools = [m for m in body["messages"] if m["role"] == "tool"]
+        if "You are a sub-agent" in sysmsg:
+            label = re.search(r"option (\w+)", next(m["content"] for m in body["messages"] if m["role"] == "user")).group(1)
+            if not tools:
+                return {"text": f"Writing the {label} script.", "tool_calls": [call("write_file", path=f"work/voices/{label}.md", content=f"# {label}")]}
+            return {"tool_calls": [call("subagent_report", result={"voice": label, "script": f"work/voices/{label}.md"}, summary=f"{label} voice direction ready")]}
+        if not tools:
+            return {"text": "Exploring three voice directions in parallel.", "tool_calls": [
+                call("todo_write", items=[{"title": "Voice directions"}]),
+                *[call("spawn_subagent", task=f"Write voice option {n}: a 2-line read in a {n} tone", tools_allowed=["write_file"], label=n)
+                  for n in ("calm", "bold", "playful")]]}
+        return {"text": "All three directions are ready."}
+
+    mock = MockServer([brain] * 20)
+    mock.__enter__()
+    try:
+        c.post("/api/settings/remember", json={"llm_api_key": "sk-mock-ui-0123456789", "llm_base_url": mock.url, "llm_model": "mock-director"})
+        rid = c.post(f"/api/projects/{p['id']}/runs", json={"text": "Give me three voice directions"}).json()["id"]
+        t0 = time.time()
+        while time.time() - t0 < 60 and c.get(f"/api/runs/{rid}").json()["status"] not in ("idle", "completed"):
+            time.sleep(0.5)
+        ctx = browser.new_context(viewport={"width": 1440, "height": 900})
+        page = ctx.new_page()
+        login(page, server["url"])
+        page.get_by_text("Voice options").first.click()
+        cards = page.locator("[data-testid=subagent]")
+        cards.first.wait_for(timeout=30000)
+        assert cards.count() == 3
+        cards.first.locator("button").first.click()
+        cards.first.get_by_text("Wrote a file").wait_for(timeout=20000)
+        shot(page, "subagents")
+        page.get_by_role("button", name="Brief and output settings").click()
+        page.get_by_role("switch", name="Autopilot").wait_for()
+        page.get_by_role("switch", name="Autopilot").scroll_into_view_if_needed()
+        shot(page, "collaboration_settings")
+        ctx.close()
+    finally:
+        c.post("/api/settings/remember", json={"llm_api_key": "sk-mock-ui-0123456789", "llm_base_url": setup["mock"].url, "llm_model": "mock-director"})
+        mock.__exit__()
+    assert json

@@ -83,7 +83,7 @@ const TOOLS: Record<string, ToolMeta> = {
 
 // Tools whose result is shown as a card or request instead of a tool row
 const CARD_TOOLS = new Set(["present_video", "present_image", "present_audio", "present_file", "present_comparison", "present_storyboard", "present_timeline",
-  "present_code", "present_table", "present_palette", "ask_user", "request_approval", "present_options", "notify", "report_progress", "spawn_subagent"]);
+  "present_code", "present_table", "present_palette", "ask_user", "request_approval", "present_options", "notify", "report_progress", "spawn_subagent", "self_review"]);
 
 const STATUS: Record<string, { label: string; color: "accent" | "success" | "warning" | "danger" | "default" }> = {
   running: { label: "Working", color: "accent" },

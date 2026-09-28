@@ -82,12 +82,14 @@ def test_signup_demo_upload_terminal_settings(browser):
         time.sleep(3)
     assert page.get_by_text("Film delivered").count(), "demo did not complete in the UI"
     page.get_by_role("tab", name="Preview").click()
-    page.locator("[data-testid=preview-video]").wait_for()
+    page.locator("[data-testid=player-video]").first.wait_for()
     shot(page, "studio_delivered")
-    page.get_by_role("tab", name="QC").click()
+    page.get_by_role("button", name="More panels").click()
+    page.get_by_role("menuitem", name="QC").click()
     page.get_by_text("All checks passed").wait_for(timeout=20000)
     shot(page, "qc")
-    page.get_by_role("tab", name="Media").click()
+    page.get_by_role("button", name="More panels").click()
+    page.get_by_role("menuitem", name="Media").click()
     page.get_by_role("heading", name="Final mix").wait_for()
 
     # 3. new project + upload via the Assets tab

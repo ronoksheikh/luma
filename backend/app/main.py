@@ -38,6 +38,7 @@ WARNING = """
 
 def _setup_logging():
     logging.basicConfig(level=os.environ.get("LUMA_LOG_LEVEL", "INFO"), format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.getLogger("alembic").setLevel(logging.WARNING)
     f = RedactingFilter()
     for name in ("", "luma", "uvicorn", "uvicorn.error", "uvicorn.access", "httpx", "openai"):
         logging.getLogger(name).addFilter(f)

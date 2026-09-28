@@ -101,3 +101,21 @@ Legend: `[x]` done **and verified by running it**, `[~]` done with a caveat note
 
 ## P2.6 — sub-agents
 - [x] `spawn_subagent(task, tools_allowed, budget)`: child run (`parent_run_id`, `limits`) with its own context, a restricted toolset (never finish/ask/spawn), own step/cost/ElevenLabs budget, `subagent_report` result; `subagent_start` / `subagent_end` events; per-project concurrency cap; child cost added to the parent; cancelled with the parent (tests); off unless the project enables sub-agents
+
+## P2.UI — interface
+- [x] centre pane: sticky bar with plan progress (n / m + current item), run stage + percent + ETA, live budget meter (cost/tokens/steps, tooltip with caps and ElevenLabs characters)
+- [x] inline cards for every `present_*` (video with chapters/speed/frame-step/download, image single/grid/carousel, waveform audio with word highlighting, file previews, comparison slider/side-by-side/toggle with synced videos, storyboard strip, timeline tracks tied to a player, highlighted code, table, palette, variant grid, font), `ask_user` (chips, multi-select, free text, timeout countdown), `request_approval` (drafts inline, Approve / Request changes, `A`), `present_options` (preview cards), sub-agents (collapsible nested timelines)
+- [x] right pane: **Plan** (live tree, status icons, progress, elapsed per item, evidence, add/edit/reorder/block/skip/done, revisions), **Artifacts** (versions, compare any two, ⭐, rename, delete, download, download all/favourites), **Memory** (edit/delete/add), **Checkpoints** (timeline, create, restore with confirm); Preview/Terminal/Assets/Media/Files/QC kept (overflow menu)
+- [x] project settings: Autopilot, approval thresholds (render minutes, ElevenLabs characters, cost, run time), web access, sub-agents + limits; global limits: plan-first steps, cost cap, token cap
+- [x] notifications: bell with history (mark read), toasts for live `notify`, desktop notifications (permission asked once) for approvals, questions, finished/failed runs
+- [x] shortcuts: Space/k play-pause, `,` `.` frame step, `A` approve, `Esc` stop (confirm), Ctrl/⌘K command palette (projects, artifacts, todos, demo, export all, settings), Ctrl/⌘, settings
+- [x] Resume banner for interrupted runs
+
+## P2 — tests, docs, definition of done
+- [x] backend: 62 tests (plan rules, re-planning, user edits, plan-first rule, memory, compaction keeps pinned items, checkpoints create/restore/undo, resume after a simulated restart mid-render, Alembic upgrade of a 1.0 DB, presentation + versioning + REST, questions/approvals/options/timeouts/typed answers, gates + Autopilot, budget caps, power tools, SSRF guard, web tools, QC → blocked todos, self-review, finish gate, full mocked flow, sub-agents incl. cascade cancel)
+- [x] engine: 59 tests still pass after the per-aspect layout change
+- [x] Playwright (`pytest -m ui`, in-process server + scripted director): plan panel updates live, approval button and `A` key, presentation cards, artifacts compare slider, memory, checkpoints, bell, command palette, sub-agent cards, collaboration settings — and all README screenshots
+- [x] README documents every new tool with screenshots; `prompts/director.md` has "Working on long jobs" + a one-example-per-tool cheat-sheet
+- [~] **real OpenRouter run** (definition of done #3): **not run** — no API key is available in this environment. Everything the agent does was exercised with a scripted OpenAI-compatible server; token cost uses OpenRouter's `pricing` fields when the model list provides them.
+- [x] e2e against the rebuilt container (9 tests): health, login required, demo 300 frames / 60 fps / AAC / QC, sandbox isolation, UI smoke, **`docker restart` mid-render → interrupted → Resume → render re-queued with finished frames kept → video with chapters presented → QC passes → finished** (definition of done #2)
+- [~] the Docker image was verified on the Ubuntu 24.04 fallback base (Debian mirrors are blocked from this build environment); new system dependency: `tesseract-ocr`

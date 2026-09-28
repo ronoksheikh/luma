@@ -57,6 +57,8 @@ persistent bash shell running as an unprivileged sandbox user. When you send a m
    - `ask_user` (the run pauses and shows you options), `finish`
    - with ElevenLabs connected: `el_tts`, `el_design_voice`, `el_save_designed_voice`,
      `el_sound_effect`, `el_music`, `el_speech_to_text`, `el_list_voices`, `el_list_models`
+   - planning, memory, checkpoints, presentation, approvals, production and review tools — see
+     [Long jobs](#long-jobs-plan-present-collaborate)
 3. Scenes are Python files that import `luma_engine`; four templates (`fan_unfold`,
    `exploded_assembly`, `stroke_reveal`, `voiced_explainer`) give the model a fast,
    well-tested starting point. The system prompt (Settings → Director) sets the workflow
@@ -67,6 +69,147 @@ persistent bash shell running as an unprivileged sandbox user. When you send a m
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) and [ENGINE_NOTES.md](ENGINE_NOTES.md) for the
 internals and the rendering pitfalls the engine handles.
+
+## Long jobs: plan, present, collaborate
+
+The director is built for long jobs (30–120 s films, many revisions, sessions that span days). It
+plans, shows drafts, asks for sign-off, versions everything and delivers — like a senior studio.
+Every item below is an agent tool (same registry as the others) that emits typed, persisted,
+replayable events; the UI renders them live and on reload.
+
+### Planning — `todo_write`, `todo_update`, `todo_add`, `todo_list`
+
+![Plan panel next to an approval card](docs/screenshots/plan_panel.png)
+
+- Any request longer than ~5 steps starts with a plan: phases → tasks, each with **acceptance
+  criteria**. After `plan_required_after_steps` (Settings → Limits) without a plan, only planning and
+  read-only tools run.
+- Exactly **one** item is in progress; `done` needs **evidence** (files, artifact ids, QC JSON) or a
+  justification; `skipped` needs a reason; phases follow their tasks. Re-planning needs a reason and
+  keeps the old plan as a revision.
+- The plan is always pinned into the model's context (it survives compaction). The **Plan** tab and
+  the sticky bar above the chat update live; you can add, edit, reorder, block, skip or complete
+  items — the director gets a system note at its next step.
+
+### Memory, notes, checkpoints, compaction, resume
+
+| Memory | Checkpoints |
+| --- | --- |
+| ![Memory tab](docs/screenshots/memory.png) | ![Checkpoints tab](docs/screenshots/checkpoints.png) |
+
+- `memory_write` / `memory_read` / `memory_search`: durable project facts (brand colours, chosen voice,
+  approved style, "never use navy"), injected into every run of the project; editable in **Memory**.
+- `notes_append` / `notes_read`: the director's scratchpad per run; its tail stays in context.
+- `checkpoint_create` / `checkpoint_list` / `checkpoint_restore`: git snapshots of the workspace
+  (scene code, audio, settings, plan) kept outside the workspace; automatic after every successful
+  render; restorable (and undoable) from **Checkpoints**.
+- `context_compact`: summarises older turns into a structured digest (decisions, brand facts, files,
+  results, open issues); also automatic at 75 % of the context budget. The plan, memory, output
+  settings, brand.json, events.json, notes and your requests are never dropped.
+- **Resume**: if the container restarts mid-run, the run shows as interrupted with a **Resume** button.
+  Resume closes tool calls that never returned, re-attaches jobs that are still alive, re-queues
+  renders that died (finished frames are kept) and continues with a note explaining what happened.
+
+### Presentation — the director shows its work
+
+| Storyboard + approval | Final video with chapters |
+| --- | --- |
+| ![Approval with storyboard](docs/screenshots/approval.png) | ![Video card](docs/screenshots/delivered.png) |
+| **Timeline tied to the player** | **A/B compare of two versions** |
+| ![Timeline card](docs/screenshots/timeline_card.png) | ![Compare slider](docs/screenshots/compare.png) |
+| **Palette** | **Code** |
+| ![Palette card](docs/screenshots/card_palette.png) | ![Code card](docs/screenshots/card_code.png) |
+| **File / deliverable** | **Table (self-review)** |
+| ![File card](docs/screenshots/card_file.png) | ![Table card](docs/screenshots/card_table.png) |
+
+| Tool | Card |
+| --- | --- |
+| `present_video(path, title, caption?, poster_frame?, chapters?[], loop?)` | player with frame stepping (`,` `.`), speed, loop, chapter markers, download |
+| `present_image(path \| paths[], title, caption?, layout=single\|grid\|carousel)` | stills, end cards, contact sheets |
+| `present_audio(path, title, transcript?, waveform=true)` | waveform player; word timings highlight during playback |
+| `present_file(path, title, description?)` | download card with type icon, size and a preview (text, code, JSON, SRT, PDF, zip listing, media) |
+| `present_comparison(a, b, mode=side_by_side\|slider\|toggle, labels)` | A/B of two videos (synced) or images |
+| `present_storyboard(frames[] or scene_path, timings[], notes[])` | shot strip rendered from the scene, for sign-off before the final render |
+| `present_timeline(events[] or events_path, video?)` | picture/audio event tracks with a scrubber tied to the player |
+| `present_code(path, highlight_lines?)` | syntax-highlighted scene code |
+| `present_table(title, columns, rows)` | specs, palettes, QC results |
+| `present_palette(colors[{hex,name,usage}])` | brand swatches with contrast ratios |
+
+Everything presented becomes an **artifact** — pinned to the **Artifacts** shelf, **versioned** by
+`version_group` (v2, v3…), comparable (pick any two versions), and can be favourited ⭐, renamed,
+deleted, downloaded, or downloaded all at once as a zip.
+
+![Artifacts shelf](docs/screenshots/artifacts.png)
+
+### Collaboration & approval
+
+- `ask_user(question, options?, allow_free_text, multi_select, timeout_s?, default?)`: chips + text box;
+  the run pauses until you answer (or the timeout picks the default). Typing in the composer answers too.
+- `request_approval(title, summary, artifacts[], choices)`: a sign-off gate with the drafts attached.
+  Enforced in code before expensive steps — 4K or long (estimated) final renders, long ElevenLabs
+  generations, continuing past the run's cost or time thresholds — unless **Autopilot** is on
+  (**Brief & output → Collaboration**, where the thresholds live). Press **A** to approve.
+- `present_options(title, options[{label, description, preview_artifact}])`: "here are 3 directions".
+- `notify(message, level)`: toast + desktop notification + the bell's history.
+- `report_progress(stage, percent, eta_s?, detail?)`: the stage shown in the sticky bar.
+
+| Collaboration settings | Notifications |
+| --- | --- |
+| ![Collaboration settings](docs/screenshots/collaboration_settings.png) | ![Notification bell](docs/screenshots/notifications.png) |
+
+### Production power tools (also on the CLI: `python -m luma_engine <cmd>`)
+
+| Variants grid (`batch_render`) | Reframed end cards (`reframe_export`) |
+| --- | --- |
+| ![Variant grid](docs/screenshots/card_grid.png) | ![Reframed end cards](docs/screenshots/card_reframe.png) |
+
+| Tool | CLI | What it does |
+| --- | --- | --- |
+| `media_probe(path)` | `probe` | ffprobe as clean JSON |
+| `extract_frames(path, times[] \| every_n)` | `frames` | PNG frames + a labelled contact sheet |
+| `make_gif_or_webp(path, start, end, width, fps)` | `gif` | palette-optimised GIF / animated WebP previews |
+| `make_thumbnail(path, time)` | `thumb` | a still from a video |
+| `export_end_card(scene, time, sizes[])` | `endcard` | the final design rendered (not scaled) at each size |
+| `reframe_export(scene, aspect_ratios[])` | `reframe-check` | re-renders the same scene for 16:9, 9:16, 1:1, 4:5 — the lockup re-lays out (horizontal/stacked, title-safe), no cropping |
+| `batch_render(scene, variants[])` | `--set key=value` | parameter sweeps as queued jobs, presented as a comparison grid |
+| `vectorize_raster(path)` | `vectorize` | PNG/JPG logo → SVG (vtracer) with an IoU fidelity score; always flagged as auto-traced |
+| `extract_palette(path)` / `detect_fonts(path)` | `palette` / `fonts` | dominant + declared colours; exact PDF font names, OCR-assisted guesses marked as guesses |
+| `install_font(family \| url)` | — | Google Fonts / official releases into `fonts/`, licence recorded |
+| `audio_mix(tracks[], target_lufs)` | `mix` | multitrack mix, side-chain ducking, loudness + true-peak limiting |
+| `captions_build(word_timings, style)` | `captions` | SRT, WebVTT and a kinetic-caption layer spec |
+| `render_queue_status()` / `render_queue_cancel(job_id)` | — | every spawned job across your projects |
+| `budget_status()` | — | tokens + estimated cost (OpenRouter pricing), ElevenLabs characters, time, steps left — also the live meter in the sticky bar; cost/token caps stop runs gracefully |
+| `web_fetch(url)` / `web_search(query)` | — | off by default (per project); results are shown as source cards and treated as untrusted data |
+
+### Self-review & quality gates
+
+- `self_review(checklist_name)` runs `prompts/checklists/{brand_fidelity,motion_quality,audio_quality,delivery}.md`
+  against the output and returns a pass/fail table (measured items + items the director must confirm).
+- Failing `qc_report` checks become **blocked** plan items; they close themselves when QC passes.
+- `finish` refuses while plan items are open, QC fails, or the final video / deliverables were not
+  presented with `present_video` / `present_file`.
+
+### Sub-agents — `spawn_subagent(task, tools_allowed[], budget)`
+
+![Sub-agents](docs/screenshots/subagents.png)
+
+Optional (per project). A child agent with its own context, a restricted toolset and its own step /
+cost / ElevenLabs budget works on a self-contained task ("design 3 voice options") and reports a
+structured result. Children run in parallel up to the project's limit, their cost counts against
+the parent, they are cancelled with it, and their timelines nest under the parent's.
+
+### Keyboard
+
+![Command palette](docs/screenshots/command_palette.png)
+
+| Key | Action |
+| --- | --- |
+| `Space` / `k` | play / pause the focused player |
+| `,` / `.` | previous / next frame |
+| `A` | approve the pending approval |
+| `Esc` | stop the run (asks to confirm) |
+| `Ctrl`/`⌘` `K` | command palette: jump to a project, artifact or todo; start the demo; export all |
+| `Ctrl`/`⌘` `,` | settings |
 
 ## Connecting a model
 
@@ -168,7 +311,10 @@ npm run dev                              # Vite dev server (set LUMA_DEV_CORS=1 
 # run the backend against a local data dir
 cd backend && LUMA_DATA_DIR=../data LUMA_PORT=8080 python -m app.main
 
-# end-to-end, against a running container
+# UI tests (Playwright) against an in-process server and a scripted director; saves screenshots
+LUMA_CHROMIUM=/path/to/chrome LUMA_SCREENSHOTS=docs/screenshots pytest -m ui tests/ui
+
+# end-to-end, against a running container (includes a docker restart mid-render + Resume)
 docker compose up -d --build
 LUMA_E2E_URL=http://127.0.0.1:8080 pytest -m e2e tests/e2e -v
 ```

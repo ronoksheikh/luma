@@ -131,7 +131,7 @@ function ImageCard({ art }: { art: Artifact }) {
   }
   return (
     <CardShell art={art} subtitle={m.caption || (art.type === "grid" ? `${imgs.length} variants` : undefined)}>
-      <div className={cn("grid gap-2", imgs.length > 1 ? "grid-cols-2" : "grid-cols-1")}>
+      <div className={cn("grid items-start gap-2", imgs.length > 1 ? "grid-cols-2" : "grid-cols-1")}>
         {imgs.map((im, k) => (
           <figure key={k} className="overflow-hidden rounded-xl border border-border">
             {im.kind === "video" ? <video src={im.url} controls loop playsInline className="aspect-video w-full bg-night" />

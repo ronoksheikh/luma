@@ -30,35 +30,34 @@ export function Inspector({ run }: { run: RunState }) {
   ];
   const more: [string, string, number?][] = [["memory", "Memory"], ["checkpoints", "Checkpoints"], ["media", "Media", mediaCount], ["outputs", "Files", files.length], ["qc", "QC", qc]];
   return (
+    <div className="relative flex h-full min-h-0 flex-col">
+    <Dropdown>
+      <Button size="sm" variant="ghost" className="absolute right-2 top-3 z-10 text-muted" aria-label="More panels">
+        More <CaretDown size={12} />
+      </Button>
+      <Dropdown.Popover placement="bottom end">
+        <Dropdown.Menu onAction={(k) => setRightTab(String(k))}>
+          {more.map(([id, label, n]) => (
+            <Dropdown.Item key={id} id={id} textValue={label}><Label>{label}</Label>{n ? <span className="ms-auto text-xs tabular-nums text-muted">{n}</span> : null}</Dropdown.Item>
+          ))}
+        </Dropdown.Menu>
+      </Dropdown.Popover>
+    </Dropdown>
     <Tabs variant="secondary" selectedKey={rightTab} onSelectionChange={(k) => setRightTab(String(k))} className="flex h-full min-h-0 flex-col">
-      <Tabs.ListContainer className="h-14 shrink-0 border-separator pl-3 pr-2">
-        <div className="flex h-full items-end">
-          <Tabs.List aria-label="Inspector" className="min-w-0 flex-1 overflow-x-auto">
-            {[...primary, ...more].map(([id, label, n]) => {
-              const extra = more.some(([m]) => m === id);
-              return (
-                <Tabs.Tab key={id} id={id} className={cn("h-11 gap-1.5 whitespace-nowrap px-3", extra && id !== rightTab && "hidden")}>
-                  {label}
-                  {id === "plan" && run.plan.total ? <span className="text-[11px] tabular-nums text-muted">{run.plan.done}/{run.plan.total}</span> : null}
-                  {n ? <span className="text-[11px] tabular-nums text-muted">{n}</span> : null}
-                  <Tabs.Indicator />
-                </Tabs.Tab>
-              );
-            })}
-          </Tabs.List>
-        <Dropdown>
-          <Button size="sm" variant="ghost" className="mb-2 ml-1 shrink-0 text-muted" aria-label="More panels">
-            More <CaretDown size={12} />
-          </Button>
-          <Dropdown.Popover placement="bottom end">
-            <Dropdown.Menu onAction={(k) => setRightTab(String(k))}>
-              {more.map(([id, label, n]) => (
-                <Dropdown.Item key={id} id={id} textValue={label}><Label>{label}</Label>{n ? <span className="ms-auto text-xs tabular-nums text-muted">{n}</span> : null}</Dropdown.Item>
-              ))}
-            </Dropdown.Menu>
-          </Dropdown.Popover>
-        </Dropdown>
-        </div>
+      <Tabs.ListContainer className="flex h-14 shrink-0 items-end overflow-x-auto border-separator pl-3 pr-24">
+        <Tabs.List aria-label="Inspector">
+          {[...primary, ...more].map(([id, label, n]) => {
+            const extra = more.some(([m]) => m === id);
+            return (
+              <Tabs.Tab key={id} id={id} className={cn("h-11 gap-1.5 whitespace-nowrap px-3", extra && id !== rightTab && "hidden")}>
+                {label}
+                {id === "plan" && run.plan.total ? <span className="text-[11px] tabular-nums text-muted">{run.plan.done}/{run.plan.total}</span> : null}
+                {n ? <span className="text-[11px] tabular-nums text-muted">{n}</span> : null}
+                <Tabs.Indicator />
+              </Tabs.Tab>
+            );
+          })}
+        </Tabs.List>
       </Tabs.ListContainer>
       <Tabs.Panel id="preview" className="min-h-0 flex-1 overflow-y-auto p-0"><PreviewPanel run={run} files={files} /></Tabs.Panel>
       <Tabs.Panel id="plan" className="min-h-0 flex-1 overflow-y-auto p-0"><PlanPanel run={run} /></Tabs.Panel>
@@ -71,6 +70,7 @@ export function Inspector({ run }: { run: RunState }) {
       <Tabs.Panel id="outputs" className="min-h-0 flex-1 overflow-y-auto p-0"><FilesPanel files={files} reload={loadFiles} /></Tabs.Panel>
       <Tabs.Panel id="qc" className="min-h-0 flex-1 overflow-y-auto p-0"><QcPanel run={run} /></Tabs.Panel>
     </Tabs>
+    </div>
   );
 }
 

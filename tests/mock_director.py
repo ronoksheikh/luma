@@ -63,7 +63,7 @@ def turns(render_wait_s: int = 600, slow_render: bool = False) -> list:
     ]
     if slow_render:
         t += [
-            {"tool_calls": [call("terminal_spawn", name="render-final", command="python -m luma_engine pipeline scene.py --out ../renders/final --name final --workers 1")]},
+            {"tool_calls": [call("terminal_spawn", name="render-final", command="cd .. && python -m luma_engine pipeline work/scene.py --out renders/final --name final --workers 1")]},
             {"tool_calls": [call("terminal_run", command="sleep 20; ls renders/final | head", timeout_s=120)]},
             {"tool_calls": [call("terminal_poll", name="render-final")]},
         ]
@@ -98,9 +98,32 @@ def followup_turns() -> list:
         {"tool_calls": [call("terminal_run", command="cp renders/final_b/final_b.mp4 outputs/veyra_outro_b.mp4")]},
         lambda body: {"tool_calls": [call("present_video", path="outputs/veyra_outro_b.mp4", title="Veyra outro", caption="deeper night background",
                                           chapters=[{"t": 0.3, "label": "Seed"}, {"t": 1.2, "label": "Unfold"}, {"t": 2.6, "label": "Lockup"}])]},
+        {"text": "Two background treatments side by side, and the lockup checked for social formats.",
+         "tool_calls": [call("batch_render", scene="work/scene.py", title="Background treatments", times=[1.2, 2.9],
+                             variants=[{"label": "night", "set": {"background": "#0B0F2A"}}, {"label": "deep", "set": {"background": "#07358F"}}]),
+                        call("reframe_export", scene="work/scene.py", aspect_ratios=["16:9", "9:16", "4:5"], long_side=960, check_only=True)]},
+        {"tool_calls": [call("present_image", title="Reframed end cards", layout="grid",
+                             paths=["outputs/reframe/reframe_16x9_960x540_002958ms.png", "outputs/reframe/reframe_9x16_540x960_002958ms.png",
+                                    "outputs/reframe/reframe_4x5_540x676_002958ms.png"])]},
         {"text": "v2 is on the shelf — compare it with v1 in Artifacts."},
     ]
 
 
 if __name__ == "__main__":  # pragma: no cover
     print(json.dumps([x if isinstance(x, dict) else "<dynamic>" for x in turns()], indent=1)[:2000])
+
+
+# ---------------------------------------------------------------------------------------------------------
+# The container-restart e2e: `restart_head` runs until the render job is going and the director is busy;
+# after `docker restart` + Resume, `restart_tail` waits for the re-queued render and finishes the job.
+def restart_head() -> list:
+    t = turns(slow_render=True)
+    t[7] = {"tool_calls": [call("terminal_run", command="sleep 300", timeout_s=400)]}  # busy when the container restarts
+    return t[:8]
+
+
+def restart_tail() -> list:
+    wait = {"text": "I was resumed — waiting for the re-queued render to finish.",
+            "tool_calls": [call("terminal_run", command="while [ ! -f renders/final/manifest.json ]; do sleep 2; done; ls renders/final",
+                                timeout_s=900)]}
+    return [wait] + turns(slow_render=True)[9:]
