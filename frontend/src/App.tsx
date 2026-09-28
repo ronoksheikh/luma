@@ -1,14 +1,17 @@
-import { Button, Drawer, Spinner, Toast, ToggleButton, ToggleButtonGroup } from "@heroui/react";
+import { AlertDialog, Button, Drawer, Spinner, Toast, ToggleButton, ToggleButtonGroup } from "@heroui/react";
 import { ChatCircleText, FilmSlate, FolderSimplePlus, List } from "@phosphor-icons/react";
-import { useEffect, useState, type Key } from "react";
+import { useEffect, useRef, useState, type Key } from "react";
 import { AuthScreen } from "./features/Auth";
 import { Chat } from "./features/Chat";
+import { CommandPalette } from "./features/CommandPalette";
+import { useLiveNotifications } from "./features/Notifications";
 import { Inspector } from "./features/Inspector";
 import { ProjectSettingsModal } from "./features/ProjectSettings";
 import { SettingsModal } from "./features/SettingsModal";
 import { Sidebar } from "./features/Sidebar";
 import { api, setUnauthorizedHandler, type Project } from "./lib/api";
-import { useRunEvents } from "./lib/run";
+import { ACTIVE, useRunEvents } from "./lib/run";
+import { playerKeys } from "./ui/player";
 import { useStore } from "./lib/store";
 import { Logo, cn } from "./ui/kit";
 
@@ -46,7 +49,12 @@ function Splash() {
 function Studio() {
   const { loadServer, refreshProjects, projectId, runId, refreshRuns, openSettings, navOpen, setNavOpen, mainView, setMainView } = useStore();
   const [ready, setReady] = useState(false);
+  const [palette, setPalette] = useState(false);
+  const [confirmStop, setConfirmStop] = useState(false);
   const run = useRunEvents(runId);
+  useLiveNotifications(run);
+  const runRef = useRef(run);
+  runRef.current = run;
 
   useEffect(() => {
     Promise.all([loadServer(), refreshProjects()]).finally(() => setReady(true));
@@ -54,7 +62,21 @@ function Studio() {
   useEffect(() => { if (ready) { refreshProjects(); refreshRuns(); } }, [run.status]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === ",") { e.preventDefault(); openSettings(); }
+      if ((e.metaKey || e.ctrlKey) && e.key === ",") { e.preventDefault(); openSettings(); return; }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setPalette((v) => !v); return; }
+      const t = e.target as HTMLElement | null;
+      const typing = !!t?.closest("input,textarea,select,[contenteditable=true],.xterm,[role=dialog]");
+      if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+      const r = runRef.current;
+      if (e.key === "Escape" && ACTIVE.has(r.status)) { e.preventDefault(); setConfirmStop(true); return; }
+      if ((e.key === "a" || e.key === "A") && r.pendingRequest?.reqKind === "approval") {
+        e.preventDefault();
+        const rid = useStore.getState().runId;
+        api(`/api/runs/${rid}/requests/${r.pendingRequest.id}/answer`, { method: "POST", json: { choice: r.pendingRequest.data.choices[0] } })
+          .then(() => useStore.getState().notify("Approved", "ok")).catch((err) => useStore.getState().notify(err.message, "bad"));
+        return;
+      }
+      if (playerKeys(e)) e.preventDefault();
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
@@ -96,6 +118,17 @@ function Studio() {
       </main>
       <SettingsModal />
       <ProjectSettingsModal />
+      <CommandPalette open={palette} onClose={() => setPalette(false)} run={run} />
+      <AlertDialog.Backdrop isOpen={confirmStop} onOpenChange={setConfirmStop}>
+        <AlertDialog.Container><AlertDialog.Dialog className="sm:max-w-[380px]">
+          <AlertDialog.Header><AlertDialog.Icon status="danger" /><AlertDialog.Heading>Stop the run?</AlertDialog.Heading></AlertDialog.Header>
+          <AlertDialog.Body><p>The model stream, pending requests, the running command and render jobs are cancelled. You can continue later with a message.</p></AlertDialog.Body>
+          <AlertDialog.Footer>
+            <Button slot="close" variant="tertiary">Keep going</Button>
+            <Button variant="danger" onPress={async () => { setConfirmStop(false); await api(`/api/runs/${runId}/cancel`, { method: "POST" }).catch(() => {}); }}>Stop</Button>
+          </AlertDialog.Footer>
+        </AlertDialog.Dialog></AlertDialog.Container>
+      </AlertDialog.Backdrop>
     </div>
   );
 }

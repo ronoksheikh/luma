@@ -1,15 +1,16 @@
-import { Button, Chip, EmptyState, Slider, Spinner, Tabs } from "@heroui/react";
+import { Button, Chip, Dropdown, EmptyState, Label, Spinner, Tabs } from "@heroui/react";
 import {
-  ArrowClockwise, CaretLeft, CaretRight, CheckCircle, DownloadSimple, FileArchive, FileText, FileVideo, FilmSlate, Image as ImageIcon, Pause, Play, Repeat,
-  ShieldCheck, SkipBack, Waveform, XCircle, WarningCircle,
+  ArrowClockwise, CheckCircle, DownloadSimple, FileArchive, FileText, FileVideo, FilmSlate, Image as ImageIcon, ShieldCheck, Waveform, XCircle, WarningCircle, CaretDown,
 } from "@phosphor-icons/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, fmtBytes, type FileItem } from "../lib/api";
 import type { Media, RunState } from "../lib/run";
 import { useStore } from "../lib/store";
-import { Tip, cn } from "../ui/kit";
+import { cn } from "../ui/kit";
 import { AudioRow, Lightbox } from "../ui/media";
+import { VideoPlayer } from "../ui/player";
 import { AssetsPanel } from "./Assets";
+import { ArtifactsPanel, CheckpointsPanel, MemoryPanel, PlanPanel } from "./LongPanels";
 import { TerminalPanel } from "./Terminal";
 
 export function Inspector({ run }: { run: RunState }) {
@@ -24,25 +25,48 @@ export function Inspector({ run }: { run: RunState }) {
   const mediaCount = run.images.length + run.audios.length;
   const qc = run.artifacts.filter((a) => a.kind === "qc").length;
 
-  const tabs: [string, string, number?][] = [
-    ["preview", "Preview"], ["assets", "Assets", assetCount], ["terminal", "Terminal"], ["media", "Media", mediaCount], ["outputs", "Files", files.length], ["qc", "QC", qc],
+  const primary: [string, string, number?][] = [
+    ["preview", "Preview"], ["plan", "Plan"], ["artifacts", "Artifacts"], ["terminal", "Terminal"], ["assets", "Assets", assetCount],
   ];
+  const more: [string, string, number?][] = [["memory", "Memory"], ["checkpoints", "Checkpoints"], ["media", "Media", mediaCount], ["outputs", "Files", files.length], ["qc", "QC", qc]];
   return (
     <Tabs variant="secondary" selectedKey={rightTab} onSelectionChange={(k) => setRightTab(String(k))} className="flex h-full min-h-0 flex-col">
-      <Tabs.ListContainer className="flex h-14 shrink-0 items-end overflow-x-auto border-separator px-3">
-        <Tabs.List aria-label="Inspector">
-          {tabs.map(([id, label, n]) => (
-            <Tabs.Tab key={id} id={id} className="h-11 gap-1.5 whitespace-nowrap px-3">
-              {label}
-              {n ? <span className="text-[11px] tabular-nums text-muted">{n}</span> : null}
-              <Tabs.Indicator />
-            </Tabs.Tab>
-          ))}
-        </Tabs.List>
+      <Tabs.ListContainer className="h-14 shrink-0 border-separator pl-3 pr-2">
+        <div className="flex h-full items-end">
+          <Tabs.List aria-label="Inspector" className="min-w-0 flex-1 overflow-x-auto">
+            {[...primary, ...more].map(([id, label, n]) => {
+              const extra = more.some(([m]) => m === id);
+              return (
+                <Tabs.Tab key={id} id={id} className={cn("h-11 gap-1.5 whitespace-nowrap px-3", extra && id !== rightTab && "hidden")}>
+                  {label}
+                  {id === "plan" && run.plan.total ? <span className="text-[11px] tabular-nums text-muted">{run.plan.done}/{run.plan.total}</span> : null}
+                  {n ? <span className="text-[11px] tabular-nums text-muted">{n}</span> : null}
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+              );
+            })}
+          </Tabs.List>
+        <Dropdown>
+          <Button size="sm" variant="ghost" className="mb-2 ml-1 shrink-0 text-muted" aria-label="More panels">
+            More <CaretDown size={12} />
+          </Button>
+          <Dropdown.Popover placement="bottom end">
+            <Dropdown.Menu onAction={(k) => setRightTab(String(k))}>
+              {more.map(([id, label, n]) => (
+                <Dropdown.Item key={id} id={id} textValue={label}><Label>{label}</Label>{n ? <span className="ms-auto text-xs tabular-nums text-muted">{n}</span> : null}</Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          </Dropdown.Popover>
+        </Dropdown>
+        </div>
       </Tabs.ListContainer>
       <Tabs.Panel id="preview" className="min-h-0 flex-1 overflow-y-auto p-0"><PreviewPanel run={run} files={files} /></Tabs.Panel>
+      <Tabs.Panel id="plan" className="min-h-0 flex-1 overflow-y-auto p-0"><PlanPanel run={run} /></Tabs.Panel>
+      <Tabs.Panel id="artifacts" className="min-h-0 flex-1 overflow-y-auto p-0"><ArtifactsPanel version={run.versions.artifacts} /></Tabs.Panel>
       <Tabs.Panel id="assets" className="min-h-0 flex-1 overflow-y-auto p-0"><AssetsPanel /></Tabs.Panel>
       <Tabs.Panel id="terminal" shouldForceMount className="min-h-0 flex-1 p-0 [&[inert]]:hidden"><TerminalPanel visible={rightTab === "terminal"} /></Tabs.Panel>
+      <Tabs.Panel id="memory" className="min-h-0 flex-1 overflow-y-auto p-0"><MemoryPanel version={run.versions.memory} /></Tabs.Panel>
+      <Tabs.Panel id="checkpoints" className="min-h-0 flex-1 overflow-y-auto p-0"><CheckpointsPanel version={run.versions.checkpoints} /></Tabs.Panel>
       <Tabs.Panel id="media" className="min-h-0 flex-1 overflow-y-auto p-0"><MediaPanel images={run.images} audios={run.audios} /></Tabs.Panel>
       <Tabs.Panel id="outputs" className="min-h-0 flex-1 overflow-y-auto p-0"><FilesPanel files={files} reload={loadFiles} /></Tabs.Panel>
       <Tabs.Panel id="qc" className="min-h-0 flex-1 overflow-y-auto p-0"><QcPanel run={run} /></Tabs.Panel>
@@ -78,32 +102,12 @@ function PreviewPanel({ run, files }: { run: RunState; files: FileItem[] }) {
   const [sel, setSel] = useState<string | null>(null);
   const src = sel && videos.find((v) => v.url === sel) ? sel : videos[0]?.url;
   const poster = files.find((f) => f.ext === ".png" && /end_card/.test(f.path))?.url;
-  const v = useRef<HTMLVideoElement>(null);
-  const [loop, setLoop] = useState(true);
-  const [playing, setPlaying] = useState(false);
-  const [t, setT] = useState(0);
-  const [dur, setDur] = useState(0);
   const [bust, setBust] = useState(0);
   useEffect(() => setBust(Date.now()), [run.artifacts.length]);
-
-  const step = (n: number) => {
-    const el = v.current;
-    if (!el) return;
-    el.pause();
-    el.currentTime = Math.max(0, Math.min(el.duration || 0, Math.round(el.currentTime * fps + n) / fps + 1e-4));
-  };
-  const toggle = () => { const el = v.current; if (el) { if (el.paused) el.play(); else el.pause(); } };
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.closest("input,textarea,[contenteditable],.xterm")) return;
-      if (useStore.getState().rightTab !== "preview") return;
-      if (e.key === ",") { step(-1); e.preventDefault(); }
-      if (e.key === ".") { step(1); e.preventDefault(); }
-      if (e.key === "k") { toggle(); e.preventDefault(); }
-    };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  });
+  const chapters = useMemo(() => {
+    const card = [...run.items].reverse().find((it) => it.kind === "card" && it.card === "video" && src && it.artifact.url === src);
+    return card && card.kind === "card" ? card.artifact.meta?.chapters || [] : [];
+  }, [run.items, src]);
 
   if (!src) {
     const rendering = [...run.items].reverse().find((it) => it.kind === "tool" && it.status === "running" && it.progress?.total);
@@ -113,34 +117,9 @@ function PreviewPanel({ run, files }: { run: RunState; files: FileItem[] }) {
       </Empty>
     );
   }
-  const frame = Math.round(t * fps);
-  const total = Math.round(dur * fps);
   return (
     <div className="flex flex-col gap-4 p-4">
-      <div className="overflow-hidden rounded-2xl bg-night ring-1 ring-black/5">
-        <video ref={v} key={src} src={`${src}?v=${bust}`} poster={poster ? `${poster}?v=${bust}` : undefined} className="aspect-video w-full object-contain" loop={loop} playsInline data-testid="preview-video"
-          onTimeUpdate={(e) => setT(e.currentTarget.currentTime)} onLoadedMetadata={(e) => setDur(e.currentTarget.duration)}
-          onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onClick={toggle} />
-      </div>
-      <Slider aria-label="Frame" minValue={0} maxValue={Math.max(total, 1)} step={1} value={frame}
-        onChange={(n) => { if (v.current) v.current.currentTime = (n as number) / fps + 1e-4; }}>
-        <Slider.Track>
-          <Slider.Fill />
-          <Slider.Thumb />
-        </Slider.Track>
-      </Slider>
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1">
-          <Tip content="Start"><Button isIconOnly size="sm" variant="ghost" aria-label="Go to start" onPress={() => { if (v.current) v.current.currentTime = 0; }}><SkipBack size={16} /></Button></Tip>
-          <Tip content="Previous frame  ,"><Button isIconOnly size="sm" variant="ghost" aria-label="Previous frame" onPress={() => step(-1)}><CaretLeft size={16} /></Button></Tip>
-          <Button isIconOnly aria-label={playing ? "Pause" : "Play"} onPress={toggle} className="rounded-full">
-            {playing ? <Pause size={16} weight="fill" /> : <Play size={16} weight="fill" />}
-          </Button>
-          <Tip content="Next frame  ."><Button isIconOnly size="sm" variant="ghost" aria-label="Next frame" onPress={() => step(1)}><CaretRight size={16} /></Button></Tip>
-          <Tip content="Loop"><Button isIconOnly size="sm" variant="ghost" aria-label="Loop" aria-pressed={loop} className={cn(loop ? "text-accent" : "text-muted")} onPress={() => setLoop(!loop)}><Repeat size={16} /></Button></Tip>
-        </div>
-        <div className="whitespace-nowrap font-mono text-xs tabular-nums text-muted">{frame} / {total} · {t.toFixed(2)}s<span className="hidden sm:inline"> · {fps} fps</span></div>
-      </div>
+      <VideoPlayer key={src} src={`${src}?v=${bust}`} poster={poster ? `${poster}?v=${bust}` : undefined} fps={fps} chapters={chapters} downloadName={src.split("/").pop()} />
       {videos.length > 1 && (
         <div className="flex flex-col gap-1">
           {videos.map((vv) => (

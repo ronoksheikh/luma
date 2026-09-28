@@ -99,6 +99,9 @@ const LIMITS: { key: string; label: string; hint: string; step?: number; min?: n
   { key: "el_char_budget", label: "ElevenLabs characters / run", hint: "Hard cap, checked before each request.", step: 100, min: 0 },
   { key: "job_concurrency", label: "Parallel render jobs", hint: "Extra jobs queue up.", min: 1 },
   { key: "tool_wait_seconds", label: "Render wait (s)", hint: "Then the render continues as a job.", min: 5 },
+  { key: "plan_required_after_steps", label: "Plan required after (steps)", hint: "Without a plan, only planning tools run after this. 0 = off.", min: 0 },
+  { key: "max_cost_usd", label: "Cost cap per run ($)", hint: "Stops the run gracefully. 0 = none.", step: 0.5, min: 0 },
+  { key: "max_tokens", label: "Token cap per run", hint: "Stops the run gracefully. 0 = none.", step: 10000, min: 0 },
 ];
 
 function Limits() {

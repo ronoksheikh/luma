@@ -12,6 +12,19 @@ const RESOLUTIONS = [
   { id: "3840x2160", label: "3840 × 2160", note: "4K" },
 ];
 
+function Num({ label, value, onChange, step, min = 0, max }: { label: string; value: number; onChange: (v: number) => void; step: number; min?: number; max?: number }) {
+  return (
+    <NumberField value={value ?? 0} onChange={(v) => Number.isFinite(v) && onChange(v)} step={step} minValue={min} maxValue={max} className="w-full">
+      <Label>{label}</Label>
+      <NumberField.Group>
+        <NumberField.DecrementButton />
+        <NumberField.Input className="tabular-nums" />
+        <NumberField.IncrementButton />
+      </NumberField.Group>
+    </NumberField>
+  );
+}
+
 export function ProjectSettingsModal() {
   const { projects, projectId, projectSettingsOpen, setProjectSettingsOpen, refreshProjects, notify } = useStore();
   const project = projects.find((p) => p.id === projectId);
@@ -126,6 +139,33 @@ export function ProjectSettingsModal() {
                     <Button variant="secondary" className="mt-6" onPress={addAvoid} aria-label="Add colour"><Plus size={16} /> Add</Button>
                   </div>
                 </div>
+
+                <section className="flex flex-col gap-4 rounded-2xl border border-border bg-surface p-4" aria-label="Collaboration">
+                  <div>
+                    <h3 className="text-[15px] text-foreground">Collaboration</h3>
+                    <p className="text-xs text-muted">When the director must stop for your sign-off.</p>
+                  </div>
+                  <Toggle isSelected={!!st.autopilot} onChange={(v) => up({ autopilot: v })} label="Autopilot"
+                    description="Skip approval gates: expensive steps run without asking." />
+                  {!st.autopilot && (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Num label="Render longer than (min)" value={st.approval_render_minutes} step={1} onChange={(v) => up({ approval_render_minutes: v })} />
+                      <Num label="ElevenLabs request over (chars)" value={st.approval_el_chars} step={100} onChange={(v) => up({ approval_el_chars: v })} />
+                      <Num label="Run cost over ($)" value={st.approval_cost_usd} step={0.5} onChange={(v) => up({ approval_cost_usd: v })} />
+                      <Num label="Run time over (min)" value={st.approval_run_minutes} step={5} onChange={(v) => up({ approval_run_minutes: v })} />
+                    </div>
+                  )}
+                  <Toggle isSelected={!!st.web_access} onChange={(v) => up({ web_access: v })} label="Web access"
+                    description="Let the director search and read web pages (docs, font licences). Content is treated as untrusted." />
+                  <Toggle isSelected={!!st.subagents} onChange={(v) => up({ subagents: v })} label="Sub-agents"
+                    description="Let the director delegate parallel sub-tasks to helper agents." />
+                  {st.subagents && (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Num label="Parallel sub-agents" value={st.subagent_max_concurrency} step={1} min={1} max={6} onChange={(v) => up({ subagent_max_concurrency: v })} />
+                      <Num label="Cost cap per sub-agent ($)" value={st.subagent_max_cost_usd} step={0.25} onChange={(v) => up({ subagent_max_cost_usd: v })} />
+                    </div>
+                  )}
+                </section>
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="Voice language" value={st.voice_language} onChange={(v) => up({ voice_language: v })} placeholder="en" />

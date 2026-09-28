@@ -21,6 +21,7 @@
     "@xterm/addon-fit": "0.11.0",
     "@xterm/xterm": "6.0.0",
     "clsx": "2.1.1",
+    "highlight.js": "11.11.1",
     "react": "19.3.0",
     "react-aria": "3.52.1",
     "react-aria-components": "1.21.1",

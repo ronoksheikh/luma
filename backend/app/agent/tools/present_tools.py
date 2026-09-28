@@ -221,7 +221,8 @@ def _side(ctx: ToolContext, ref: str) -> dict:
             raise ToolError(f"no artifact {ref}")
         if art["type"] not in ("video", "image") or not art["path"]:
             raise ToolError(f"{ref} is a {art['type']}; compare videos or images")
-        return {"artifact_id": ref, "path": art["path"], "url": art["url"], "kind": art["type"], "title": f"{art['title']} v{art['version']}"}
+        return {"artifact_id": ref, "path": art["path"], "url": art["url"], "kind": art["type"], "title": f"{art['title']} v{art['version']}",
+                "poster": (art.get("meta") or {}).get("poster_url")}
     p = ctx.resolve(ref, must_exist=True)
     ext = p.suffix.lower()
     kind = "video" if ext in VIDEO_EXT else "image" if ext in IMG_EXT else None

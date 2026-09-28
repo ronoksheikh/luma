@@ -105,7 +105,7 @@ export const useStore = create<State>((set, get) => ({
   refreshRuns: async () => {
     const pid = get().projectId;
     if (!pid) return;
-    const runs = await api<Run[]>(`/api/projects/${pid}/runs`);
+    const runs = (await api<Run[]>(`/api/projects/${pid}/runs`)).filter((r) => r.kind !== "subagent");
     const keep = get().runId && runs.find((r) => r.id === get().runId) ? get().runId : runs[0]?.id ?? null;
     set({ runs, runId: keep });
   },

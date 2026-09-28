@@ -22,13 +22,35 @@ export type ToolItem = {
   startedAt: number;
 };
 
+export type Artifact = {
+  id: string; project_id: string; run_id: string | null; type: string; path: string | null; url: string | null; title: string;
+  version_group: string; version: number; meta: any; favorite: boolean; created_at: number;
+};
+
+export type Todo = {
+  id: string; parent_id: string | null; title: string; detail: string; status: string; priority: string; order: number;
+  acceptance_criteria: string; evidence: any[]; note: string | null; started_at: number | null; completed_at: number | null; run_id: string;
+};
+
+export type Req = {
+  kind: "request"; id: string; reqKind: "ask" | "approval" | "options"; data: any; status: "pending" | "answered" | "timeout" | "cancelled";
+  answer?: any; auto?: boolean;
+};
+
 export type Item =
   | { kind: "user"; id: string; text: string }
   | { kind: "assistant"; id: string; turn: number; text: string; reasoning: string; final?: boolean }
   | ToolItem
-  | { kind: "notice"; id: string; tone: "error" | "warn" | "info"; text: string; code?: string };
+  | { kind: "notice"; id: string; tone: "error" | "warn" | "info"; text: string; code?: string }
+  | { kind: "card"; id: string; card: string; artifact: Artifact }
+  | Req
+  | { kind: "subagent"; id: string; child: string; label: string; task: string; tools: string[]; status: string; result?: any };
 
-export type Usage = { steps?: number; prompt_tokens?: number; completion_tokens?: number; el_chars?: number; max_steps?: number; el_budget?: number };
+export type Usage = { steps?: number; prompt_tokens?: number; completion_tokens?: number; el_chars?: number; max_steps?: number; el_budget?: number; cost_usd?: number };
+export type Budget = { steps: number; max_steps: number; tokens: number; max_tokens: number | null; cost_usd: number; max_cost_usd: number | null;
+  pricing_known: boolean; el_chars: number; el_budget: number; elapsed_s: number; wall_clock_s: number };
+export type Stage = { stage: string; percent: number; eta_s?: number | null; detail?: string; ts: number };
+export type Notice = { id: number; message: string; level: string; ts: number };
 
 export type RunState = {
   items: Item[];
@@ -41,12 +63,24 @@ export type RunState = {
   connected: boolean;
   lastId: number;
   summary?: string;
+  todos: Todo[];
+  plan: { done: number; total: number; current: { id: string; title: string } | null };
+  stage?: Stage;
+  budget?: Budget;
+  notifications: Notice[];
+  versions: { artifacts: number; memory: number; checkpoints: number };
+  pendingRequest?: Req;
 };
 
-const EMPTY: RunState = { items: [], status: "idle", usage: {}, images: [], audios: [], artifacts: [], connected: false, lastId: 0 };
+const EMPTY: RunState = { items: [], status: "idle", usage: {}, images: [], audios: [], artifacts: [], connected: false, lastId: 0,
+  todos: [], plan: { done: 0, total: 0, current: null }, notifications: [], versions: { artifacts: 0, memory: 0, checkpoints: 0 } };
 
 const TYPES = ["text_delta", "tool_call_start", "tool_args_delta", "tool_output_delta", "tool_result", "image", "audio", "progress", "artifact",
-  "usage", "error", "run_status", "user_message", "job", "retry", "context"];
+  "usage", "error", "run_status", "user_message", "job", "retry", "context", "todo_update", "plan_revision", "memory_update", "checkpoint", "present",
+  "ask_user", "approval_request", "approval_result", "options_request", "notify", "progress_stage", "budget", "subagent_start", "subagent_end",
+  "compaction", "system_note"];
+
+const REQ_KIND: Record<string, Req["reqKind"]> = { ask_user: "ask", approval_request: "approval", options_request: "options" };
 
 type Ev = { id: number; type: string; data: any; ts: number };
 
@@ -137,6 +171,59 @@ export function reduce(s: RunState, e: Ev): RunState {
     }
     case "artifact":
       next.artifacts = [...s.artifacts, { ...d, ts: e.ts }];
+      if (d.artifact) next.versions = { ...s.versions, artifacts: s.versions.artifacts + 1 };
+      break;
+    case "todo_update":
+      next.todos = d.todos || [];
+      next.plan = d.progress || next.plan;
+      break;
+    case "plan_revision":
+      next.items = [...items, { kind: "notice", id: `pr${e.id}`, tone: "info", text: `Plan revised (revision ${d.revision}, by ${d.author}): ${d.reason}` }];
+      break;
+    case "memory_update":
+      next.versions = { ...s.versions, memory: s.versions.memory + 1 };
+      break;
+    case "checkpoint":
+      next.versions = { ...s.versions, checkpoints: s.versions.checkpoints + 1 };
+      if (d.action === "restore") next.items = [...items, { kind: "notice", id: `cp${e.id}`, tone: "info", text: `Restored checkpoint “${d.checkpoint?.label}”.` }];
+      break;
+    case "present":
+      next.items = [...items, { kind: "card", id: `p${e.id}`, card: d.card, artifact: d.artifact }];
+      next.versions = { ...s.versions, artifacts: s.versions.artifacts + 1 };
+      break;
+    case "ask_user":
+    case "approval_request":
+    case "options_request": {
+      const r: Req = { kind: "request", id: d.request_id, reqKind: REQ_KIND[e.type], data: d, status: d.auto ? "answered" : "pending", auto: !!d.auto };
+      next.items = [...items, r];
+      if (!d.auto) next.pendingRequest = r;
+      break;
+    }
+    case "approval_result": {
+      next.items = items.map((it) => (it.kind === "request" && it.id === d.request_id ? { ...it, status: d.status, answer: d.answer } : it));
+      if (s.pendingRequest?.id === d.request_id) next.pendingRequest = undefined;
+      break;
+    }
+    case "notify":
+      next.notifications = [...s.notifications, { id: d.id, message: d.message, level: d.level, ts: e.ts }];
+      break;
+    case "progress_stage":
+      next.stage = { ...d, ts: e.ts };
+      break;
+    case "budget":
+      next.budget = d;
+      break;
+    case "subagent_start":
+      next.items = [...items, { kind: "subagent", id: `sa${d.child_run_id}`, child: d.child_run_id, label: d.label, task: d.task, tools: d.tools || [], status: "running" }];
+      break;
+    case "subagent_end":
+      next.items = items.map((it) => (it.kind === "subagent" && it.child === d.child_run_id ? { ...it, status: d.status, result: d } : it));
+      break;
+    case "compaction":
+      next.items = [...items, { kind: "notice", id: `c${e.id}`, tone: "info", text: `Context compacted: ${d.summarized_messages} older messages summarised (${d.reason}). The plan, memory and your requests are kept.` }];
+      break;
+    case "system_note":
+      next.items = [...items, { kind: "notice", id: `sn${e.id}`, tone: "info", text: d.text }];
       break;
     case "usage":
       next.usage = { ...s.usage, ...d };
@@ -155,7 +242,11 @@ export function reduce(s: RunState, e: Ev): RunState {
       break;
     case "run_status":
       next.status = d.status;
-      next.question = d.status === "waiting_input" ? { text: d.question, options: d.options || [] } : undefined;
+      next.question = d.status === "waiting_input" && !d.request_id ? { text: d.question, options: d.options || [] } : undefined;
+      if (d.status !== "waiting_input" && s.pendingRequest && !["running"].includes(d.status)) {
+        next.pendingRequest = undefined;
+        next.items = next.items.map((it) => (it.kind === "request" && it.status === "pending" ? { ...it, status: "cancelled" } : it));
+      }
       if (d.summary) next.summary = d.summary;
       if (d.status === "cancelled" || d.status === "failed") {
         next.items = next.items.map((it) => (it.kind === "tool" && it.status === "running" ? { ...it, status: "cancelled" } : it));

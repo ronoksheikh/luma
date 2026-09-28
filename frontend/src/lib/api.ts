@@ -83,6 +83,15 @@ export type ProjectSettings = {
   voice_language: string;
   voice_tone: string;
   captions: boolean;
+  autopilot: boolean;
+  approval_render_minutes: number;
+  approval_el_chars: number;
+  approval_cost_usd: number;
+  approval_run_minutes: number;
+  web_access: boolean;
+  subagents: boolean;
+  subagent_max_concurrency: number;
+  subagent_max_cost_usd: number;
 };
 
 export type Project = {

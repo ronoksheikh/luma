@@ -2,13 +2,16 @@ import { Alert, Button, Chip, Disclosure, ListBox, ProgressBar, Select, Spinner,
 import {
   ArrowUp, Brain, CheckCircle, ClockCounterClockwise, Eye, FileCode, FilmSlate, FolderSimple, Gauge, Image as ImageIcon, List,
   MagicWand, Microphone, MusicNotes, NotePencil, Package, Paperclip, Question, ShieldCheck, SlidersHorizontal, Sparkle, Square, StopCircle,
-  Terminal, Waveform, XCircle,
+  Terminal, Waveform, XCircle, ListChecks, GitCommit, Globe, Robot,
 } from "@phosphor-icons/react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api } from "../lib/api";
 import { ACTIVE, type Item, type Media, type RunState, type ToolItem } from "../lib/run";
+import { PresentCard, RequestCard, SubagentCard } from "./Cards";
+import { NotificationBell, askNotificationPermission } from "./Notifications";
+import { RunBar, ResumeBanner } from "./RunBar";
 import { useStore } from "../lib/store";
 import { Tip, cn, fmtK } from "../ui/kit";
 import { AudioRow, Lightbox } from "../ui/media";
@@ -42,7 +45,45 @@ const TOOLS: Record<string, ToolMeta> = {
   el_speech_to_text: { icon: Microphone, label: "Transcribed audio" },
   el_list_voices: { icon: Microphone, label: "Listed voices" },
   el_list_models: { icon: Microphone, label: "Listed voice models" },
+  todo_write: { icon: ListChecks, label: "Planned the work" },
+  todo_update: { icon: ListChecks, label: "Updated the plan" },
+  todo_add: { icon: ListChecks, label: "Added to the plan" },
+  todo_list: { icon: ListChecks, label: "Read the plan" },
+  memory_write: { icon: Brain, label: "Remembered a decision" },
+  memory_read: { icon: Brain, label: "Read project memory" },
+  memory_search: { icon: Brain, label: "Searched project memory" },
+  notes_append: { icon: NotePencil, label: "Took notes" },
+  notes_read: { icon: NotePencil, label: "Read notes" },
+  checkpoint_create: { icon: GitCommit, label: "Saved a checkpoint" },
+  checkpoint_list: { icon: GitCommit, label: "Listed checkpoints" },
+  checkpoint_restore: { icon: GitCommit, label: "Restored a checkpoint" },
+  context_compact: { icon: Brain, label: "Compacted context" },
+  media_probe: { icon: Eye, label: "Probed media" },
+  extract_frames: { icon: ImageIcon, label: "Extracted frames" },
+  make_gif_or_webp: { icon: ImageIcon, label: "Made a preview loop" },
+  make_thumbnail: { icon: ImageIcon, label: "Made a thumbnail" },
+  export_end_card: { icon: ImageIcon, label: "Exported end cards" },
+  reframe_export: { icon: FilmSlate, label: "Reframed for other aspects" },
+  batch_render: { icon: FilmSlate, label: "Rendered variants" },
+  vectorize_raster: { icon: MagicWand, label: "Traced a logo" },
+  extract_palette: { icon: Eye, label: "Extracted a palette" },
+  detect_fonts: { icon: Eye, label: "Detected fonts" },
+  install_font: { icon: FileCode, label: "Installed a font" },
+  audio_mix: { icon: Waveform, label: "Mixed audio" },
+  captions_build: { icon: FileCode, label: "Built captions" },
+  render_queue_status: { icon: Gauge, label: "Checked the render queue" },
+  render_queue_cancel: { icon: StopCircle, label: "Cancelled a job" },
+  budget_status: { icon: Gauge, label: "Checked the budget" },
+  self_review: { icon: ShieldCheck, label: "Self-review" },
+  web_fetch: { icon: Globe, label: "Read a web page" },
+  web_search: { icon: Globe, label: "Searched the web" },
+  spawn_subagent: { icon: Robot, label: "Delegated to a sub-agent" },
+  subagent_report: { icon: Robot, label: "Reported back" },
 };
+
+// Tools whose result is shown as a card or request instead of a tool row
+const CARD_TOOLS = new Set(["present_video", "present_image", "present_audio", "present_file", "present_comparison", "present_storyboard", "present_timeline",
+  "present_code", "present_table", "present_palette", "ask_user", "request_approval", "present_options", "notify", "report_progress", "spawn_subagent"]);
 
 const STATUS: Record<string, { label: string; color: "accent" | "success" | "warning" | "danger" | "default" }> = {
   running: { label: "Working", color: "accent" },
@@ -79,6 +120,7 @@ export function Chat({ run }: { run: RunState }) {
       return;
     }
     setSending(true);
+    askNotificationPermission();
     try {
       const agentRun = runId && useStore.getState().runs.find((r) => r.id === runId && r.kind === "agent");
       if (agentRun) {
@@ -111,13 +153,15 @@ export function Chat({ run }: { run: RunState }) {
   return (
     <section className="flex h-full min-h-0 flex-col" aria-label="Director">
       <ChatHeader run={run} />
+      {runId && <RunBar run={run} />}
       <div ref={scroller} aria-live="polite"
         onScroll={() => { const el = scroller.current; if (el) setStick(el.scrollHeight - el.scrollTop - el.clientHeight < 80); }}
         className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto flex max-w-[760px] flex-col gap-4 px-5 pb-8 pt-6">
           {!runId && <Welcome llmReady={llmReady} onPick={setText} />}
-          {run.items.map((it) => <TimelineItem key={it.kind + it.id} item={it} onImage={setLightbox} />)}
-          {active && !run.question && run.items.length > 0 && run.items[run.items.length - 1].kind !== "tool" && (
+          {renderItems(run.items, runId!, setLightbox)}
+          {runId && <ResumeBanner run={run} />}
+          {active && !run.question && !run.pendingRequest && run.items.length > 0 && run.items[run.items.length - 1].kind !== "tool" && (
             <div className="flex items-center gap-2 text-sm text-muted"><Spinner size="sm" /> Directing…</div>
           )}
           {run.status === "completed" && <Delivered />}
@@ -184,6 +228,7 @@ function ChatHeader({ run }: { run: RunState }) {
           </Button>
         </Tip>
       )}
+      <NotificationBell live={run.notifications.length} />
     </header>
   );
 }
@@ -234,7 +279,15 @@ function Welcome({ llmReady, onPick }: { llmReady: boolean; onPick: (t: string) 
   );
 }
 
-const TimelineItem = memo(function TimelineItem({ item, onImage }: { item: Item; onImage: (m: Media) => void }) {
+export function renderItems(items: Item[], runId: string, onImage: (m: Media) => void = () => {}) {
+  return items.map((it) => <TimelineItem key={it.kind + it.id} item={it} onImage={onImage} runId={runId} />);
+}
+
+const TimelineItem = memo(function TimelineItem({ item, onImage, runId }: { item: Item; onImage: (m: Media) => void; runId: string }) {
+  if (item.kind === "card") return <PresentCard card={item.card} art={item.artifact} />;
+  if (item.kind === "request") return <RequestCard r={item} runId={runId} />;
+  if (item.kind === "subagent") return <SubagentCard it={item} render={(its, rid) => renderItems(its, rid, onImage)} />;
+  if (item.kind === "tool" && CARD_TOOLS.has(item.name) && item.status !== "error") return null;
   if (item.kind === "user") {
     return (
       <div className="flex justify-end">

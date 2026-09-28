@@ -3,6 +3,7 @@
 @import "@fontsource-variable/inter/opsz.css";
 @import "@fontsource-variable/geist-mono";
 @import "@xterm/xterm/css/xterm.css";
+@import "highlight.js/styles/github.css";
 
 /*
  * Lumademy brand system (see Brand Guidelines) mapped onto HeroUI's theme variables.
@@ -109,4 +110,5 @@
 }
 
 .xterm { padding: 10px 12px; height: 100%; }
+.hljs { background: transparent !important; padding: 0 !important; }
 .xterm .xterm-viewport { background-color: transparent !important; }
