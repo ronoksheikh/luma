@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 92 512 352" width="512" height="352">
+  <title>Veyra symbol (fictional sample brand for Luma Studio)</title>
+  <defs>
+    <linearGradient id="veyra-blade" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#FF5A5F"/>
+      <stop offset="1" stop-color="#FFB547"/>
+    </linearGradient>
+    <style>.blade { fill: url(#veyra-blade); }</style>
+  </defs>
+  <g id="fan">
+    <path id="blade-1" class="blade" d="M211.372 398.963L61.825 376.659A34 34 0 0 1 82.839 311.987L216.935 381.844A9 9 0 0 1 211.372 398.963Z"/>
+    <path id="blade-2" class="blade" d="M222.856 373.693L100.885 248.347A34 34 0 0 1 155.898 208.378L237.419 363.113A9 9 0 0 1 222.856 373.693Z"/>
+    <path id="blade-3" class="blade" d="M247 360L222 176A34 34 0 0 1 290 176L265 360A9 9 0 0 1 247 360Z"/>
+    <path id="blade-4" class="blade" d="M274.581 363.113L356.102 208.378A34 34 0 0 1 411.115 248.347L289.144 373.693A9 9 0 0 1 274.581 363.113Z"/>
+    <path id="blade-5" class="blade" d="M295.065 381.844L429.161 311.987A34 34 0 0 1 450.175 376.659L300.628 398.963A9 9 0 0 1 295.065 381.844Z"/>
+    <circle id="rivet" cx="256" cy="404" r="17" fill="#FFE0A3"/>
+  </g>
+</svg>
