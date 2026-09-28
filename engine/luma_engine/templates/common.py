@@ -259,5 +259,17 @@ def ease_time_scale(duration: float, natural: float, hold_min: float = 0.45) -> 
     return min(avail / natural, 1.6)
 
 
-__all__ = ["LogoKit", "PENTATONIC", "Part", "ease_time_scale", "pan_for_x", "seat_hit"]
+def fit_schedule(scene, natural: float, hold_min: float = 0.45) -> None:
+    """Call ``scene._schedule(k)`` with the largest time-scale k whose choreography
+    leaves at least ``hold_min`` seconds of exact hold at the end."""
+    k = ease_time_scale(scene.duration, natural, hold_min)
+    for _ in range(12):
+        scene._schedule(k)
+        limit = scene.duration - hold_min
+        if scene.t_hold <= limit + 1e-9:
+            return
+        k *= max(0.2, limit / scene.t_hold) * 0.995
+
+
+__all__ = ["LogoKit", "fit_schedule", "PENTATONIC", "Part", "ease_time_scale", "pan_for_x", "seat_hit"]
 

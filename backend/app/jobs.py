@@ -118,7 +118,7 @@ class JobManager:
         command, shell, cwd = self._argv.pop(jid)
         job = self.by_id(jid)
         env = sandbox_env(cwd)
-        argv = ["bash", "-lc", command] if shell and isinstance(command, str) else list(command)
+        argv = ["bash", "-lc", f"umask 002; {command}"] if shell and isinstance(command, str) else list(command)
         argv = sandbox_argv(argv, env)
         logf = open(job.log_path, "ab", buffering=0)
         try:
@@ -128,8 +128,6 @@ class JobManager:
             logf.close()
             self._finish(jid, "failed", None, f"could not start: {e}")
             return
-        finally:
-            pass
         logf.close()
         self.procs[jid] = proc
         with db.session() as s:

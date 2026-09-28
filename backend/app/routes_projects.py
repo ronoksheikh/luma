@@ -28,18 +28,28 @@ def project_dir(project_id: str) -> Path:
     return config.projects_dir / project_id
 
 
+def _share(p: Path) -> None:
+    """Workspace dirs are shared with the sandbox user's group (setgid so new files
+    inherit it).  Done explicitly: without CAP_FSETID the kernel may drop setgid."""
+    try:
+        if config.sandbox_group:
+            import grp
+
+            gid = grp.getgrnam(config.sandbox_group).gr_gid
+            if p.stat().st_gid != gid:
+                os.chown(p, -1, gid)
+        os.chmod(p, 0o2775)
+    except (OSError, KeyError):
+        pass
+
+
 def ensure_workspace(project_id: str) -> Path:
     d = project_dir(project_id)
+    d.mkdir(parents=True, exist_ok=True)
+    _share(d)
     for sub in PROJECT_SUBDIRS:
         (d / sub).mkdir(parents=True, exist_ok=True)
-        try:
-            os.chmod(d / sub, 0o2775)
-        except OSError:
-            pass
-    try:
-        os.chmod(d, 0o2775)
-    except OSError:
-        pass
+        _share(d / sub)
     return d
 
 

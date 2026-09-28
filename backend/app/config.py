@@ -22,6 +22,7 @@ class Config:
     port: int = field(default_factory=lambda: int(os.environ.get("LUMA_PORT", "8080")))
     # sandbox: the agent's shell/jobs run as this user (empty → same user as the backend)
     sandbox_user: str = field(default_factory=lambda: os.environ.get("LUMA_SANDBOX_USER", ""))
+    sandbox_group: str = field(default_factory=lambda: os.environ.get("LUMA_SANDBOX_GROUP", ""))
     sandbox_python: str = field(default_factory=lambda: os.environ.get("LUMA_SANDBOX_PYTHON", ""))
     netctl: str = field(default_factory=lambda: os.environ.get("LUMA_NETCTL", ""))  # e.g. "sudo -n /usr/local/sbin/luma-netctl"
     max_files: int = 20

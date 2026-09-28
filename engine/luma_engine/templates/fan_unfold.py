@@ -27,7 +27,8 @@ from ..fx import beam, glow_dot, ignite, radial_flood, refract, sheen, shockwave
 from ..layers import Frame
 from ..motion import Spring, decay, get_ease, progress, smoothstep
 from ..scene import Scene
-from .common import PENTATONIC, LogoKit, ease_time_scale, pan_for_x, seat_hit
+from ..motion import Timeline
+from .common import fit_schedule, PENTATONIC, LogoKit, pan_for_x, seat_hit
 
 NATURAL = 3.55  # seconds of choreography before the hold at 1× speed
 
@@ -58,7 +59,14 @@ class FanUnfold(Scene):
                            background=self.background)
         kit = self.kit
         self.light = self.light_color or kit.light_color.hex
-        k = self.k = ease_time_scale(self.duration, NATURAL)
+        fit_schedule(self, NATURAL)
+
+    def _schedule(self, k: float) -> None:
+        """All timings for time-scale k (re-run by fit_schedule until the hold fits)."""
+        self.k = k
+        self.timeline = Timeline(self.duration, self.fps)
+        kit = self.kit
+        W, H = self.width, self.height
         tl = self.timeline
         tl.duration, tl.fps = self.duration, self.fps
         self.t_thread = 0.0
@@ -75,7 +83,7 @@ class FanUnfold(Scene):
         self.u_start, self.seat, self.beam_t = [], [], []
         for i, b in enumerate(blades):
             sp = Spring(self.spring_freq / k ** 0.5, self.spring_damping)
-            u0 = (0.55 + self.stagger * i) * k
+            u0 = 0.55 * k + max(self.stagger * k, 0.095) * i  # keep seats audibly separate
             seat = u0 + (sp.first_crossing_time() or 0.25)
             self.springs.append(sp)
             self.u_start.append(u0)

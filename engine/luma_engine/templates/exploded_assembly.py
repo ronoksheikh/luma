@@ -19,7 +19,8 @@ from ..fx import glow_dot, sdf_wave, text_rise
 from ..layers import Frame, dof_composite, new_surface, read_surface
 from ..motion import Spring, decay, progress
 from ..scene import Scene
-from .common import PENTATONIC, LogoKit, ease_time_scale, seat_hit
+from ..motion import Timeline
+from .common import fit_schedule, PENTATONIC, LogoKit, seat_hit
 
 NATURAL = 3.7
 
@@ -48,7 +49,14 @@ class ExplodedAssembly(Scene):
                            background=self.background)
         kit = self.kit
         self.light = self.light_color or kit.light_color.hex
-        k = self.k = ease_time_scale(self.duration, NATURAL)
+        fit_schedule(self, NATURAL)
+
+    def _schedule(self, k: float) -> None:
+        """All timings for time-scale k (re-run by fit_schedule until the hold fits)."""
+        self.k = k
+        self.timeline = Timeline(self.duration, self.fps)
+        kit = self.kit
+        _W, _H = self.width, self.height
         self.cam = Camera(self.width, self.height)
         parts = sorted(kit.parts, key=lambda p: (p.is_hub, p.order))
         self.parts = parts

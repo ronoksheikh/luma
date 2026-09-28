@@ -1,0 +1,75 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+@import "@xterm/xterm/css/xterm.css";
+
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-bg: #0a0b0f;
+  --color-panel: #101218;
+  --color-panel-2: #151821;
+  --color-raised: #1b1f2a;
+  --color-line: #232836;
+  --color-line-strong: #2f3547;
+  --color-fg: #e8eaf0;
+  --color-muted: #8b93a7;
+  --color-faint: #5d6478;
+  --color-accent: #ffb547;
+  --color-accent-2: #ff6b5a;
+  --color-ok: #3ddc97;
+  --color-warn: #ffc857;
+  --color-bad: #ff5d6c;
+  --color-info: #6aa7ff;
+
+  --radius-xl: 14px;
+  --animate-pulse-soft: pulse-soft 1.6s ease-in-out infinite;
+
+  @keyframes pulse-soft {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
+}
+
+@layer base {
+  html, body, #root { height: 100%; }
+  body {
+    @apply bg-bg text-fg font-sans antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  ::selection { background: color-mix(in oklab, var(--color-accent) 35%, transparent); }
+  * { scrollbar-width: thin; scrollbar-color: var(--color-line-strong) transparent; }
+  :focus-visible { outline: 2px solid color-mix(in oklab, var(--color-accent) 70%, transparent); outline-offset: 2px; }
+}
+
+@layer components {
+  .glow-text {
+    background: linear-gradient(100deg, var(--color-accent-2), var(--color-accent));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .panel { @apply bg-panel border border-line rounded-xl; }
+  .kbd { @apply font-mono text-[10px] px-1.5 py-0.5 rounded border border-line-strong bg-raised text-muted; }
+  .md p { @apply my-2 leading-relaxed; }
+  .md ul { @apply my-2 list-disc pl-5 space-y-1; }
+  .md ol { @apply my-2 list-decimal pl-5 space-y-1; }
+  .md code { @apply font-mono text-[0.85em] px-1 py-0.5 rounded bg-raised text-accent/90; }
+  .md pre { @apply my-2 p-3 rounded-lg bg-bg border border-line overflow-x-auto text-xs; }
+  .md pre code { @apply p-0 bg-transparent text-fg; }
+  .md h1, .md h2, .md h3 { @apply font-semibold mt-3 mb-1; }
+  .md a { @apply text-accent underline underline-offset-2; }
+  .md strong { @apply text-fg font-semibold; }
+  .md table { @apply my-2 text-xs border-collapse; }
+  .md th, .md td { @apply border border-line px-2 py-1; }
+  .checker {
+    background-image: linear-gradient(45deg, #1b1f2a 25%, transparent 25%), linear-gradient(-45deg, #1b1f2a 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #1b1f2a 75%), linear-gradient(-45deg, transparent 75%, #1b1f2a 75%);
+    background-size: 12px 12px;
+    background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+  }
+}
+
+.xterm { padding: 8px; }
+.xterm .xterm-viewport { background-color: transparent !important; }

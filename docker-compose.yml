@@ -1,0 +1,58 @@
+# Luma Studio — `docker compose up --build`, then open http://localhost:8080
+#
+# SECURITY: there is NO LOGIN. The port is bound to 127.0.0.1 on purpose. Anyone who can
+# reach it gets a shell inside this container and can spend your API credits. To expose it,
+# put it behind a reverse proxy WITH authentication and set LUMA_ALLOWED_HOSTS.
+name: luma-studio
+
+services:
+  luma:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      # args:
+      #   BASE_IMAGE: python:3.11.16-slim-bookworm   # override for mirrors / air-gapped registries
+    image: luma-studio:1.0.0
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./data:/data
+    environment:
+      # Optional: prefill the setup form / server-side fallbacks (never passed to the agent's shell).
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      LUMA_ALLOWED_HOSTS: ${LUMA_ALLOWED_HOSTS:-}
+      LUMA_SANDBOX_SUDO: ${LUMA_SANDBOX_SUDO:-1}
+      LUMA_JOB_CONCURRENCY: ${LUMA_JOB_CONCURRENCY:-1}
+    restart: unless-stopped
+    # The container is the sandbox: not privileged, no Docker socket, only ./data mounted.
+    privileged: false
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN          # entrypoint: fix ownership of ./data
+      - DAC_OVERRIDE   # entrypoint + sudo inside the sandbox
+      - FOWNER
+      - FSETID         # keep the setgid bit on shared workspace dirs
+      - SETUID         # drop to the `studio` user; sudo
+      - SETGID
+      - KILL           # stop the agent's jobs
+      - NET_ADMIN      # iptables: block the API port for the agent + network toggle
+      - NET_RAW
+      - AUDIT_WRITE    # sudo audit messages
+    security_opt:
+      # sudo needs setuid, which no-new-privileges forbids. Set LUMA_SANDBOX_SUDO=0 and flip
+      # this to "no-new-privileges:true" for a hardened setup (the agent loses sudo/apt-get).
+      - "no-new-privileges:false"
+    cpus: "${LUMA_CPUS:-4}"
+    mem_limit: "${LUMA_MEMORY:-8g}"
+    pids_limit: 2048
+    shm_size: "1g"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s

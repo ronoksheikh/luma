@@ -17,7 +17,8 @@ from ..fx import glow_path, sheen, text_rise, write_on
 from ..layers import Frame
 from ..motion import get_ease, progress
 from ..scene import Scene
-from .common import PENTATONIC, LogoKit, ease_time_scale
+from ..motion import Timeline
+from .common import fit_schedule, PENTATONIC, LogoKit
 
 NATURAL = 3.6
 
@@ -43,7 +44,14 @@ class StrokeReveal(Scene):
                            background=self.background)
         kit = self.kit
         self.light = self.light_color or kit.light_color.hex
-        k = self.k = ease_time_scale(self.duration, NATURAL)
+        fit_schedule(self, NATURAL)
+
+    def _schedule(self, k: float) -> None:
+        """All timings for time-scale k (re-run by fit_schedule until the hold fits)."""
+        self.k = k
+        self.timeline = Timeline(self.duration, self.fps)
+        kit = self.kit
+        _W, _H = self.width, self.height
         tl = self.timeline
         self.t_write = 0.2 * k
         self.write_dur = 1.3 * k

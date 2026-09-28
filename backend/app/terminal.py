@@ -123,6 +123,8 @@ class TerminalSession:
         self._decoder = codecs.getincrementaldecoder("utf-8")("replace")
         self._carry = ""
         self._alive = False
+        self._start_lock = threading.Lock()
+        self._out_lock = threading.Lock()
         self.cmd_dir = Path(workdir) / ".luma" / "cmd"
 
     # -- lifecycle ------------------------------------------------------------------------
@@ -150,9 +152,10 @@ class TerminalSession:
         return bool(self.proc and self.proc.isalive())
 
     def ensure(self) -> None:
-        if not self.alive:
-            self._append(f"\r\n\x1b[2m[luma] starting shell in {self.workdir}\x1b[0m\r\n")
-            self.start()
+        with self._start_lock:  # WebSocket + agent may race to start the shell
+            if not self.alive:
+                self._append(f"\r\n\x1b[2m[luma] starting shell in {self.workdir}\x1b[0m\r\n")
+                self.start()
 
     def close(self) -> None:
         if self.proc is not None:
@@ -218,12 +221,20 @@ class TerminalSession:
         self._append(text)
 
     def _append(self, text: str) -> None:
-        self.scrollback = (self.scrollback + text)[-SCROLLBACK:]
-        for cb in list(self.listeners):
+        with self._out_lock:
+            self.scrollback = (self.scrollback + text)[-SCROLLBACK:]
+            listeners = list(self.listeners)
+        for cb in listeners:
             try:
                 cb(text)
             except Exception:
                 pass
+
+    def attach(self, cb: Callable[[str], None]) -> str:
+        """Subscribe to output and get the scrollback atomically (no gaps, no dups)."""
+        with self._out_lock:
+            self.listeners.add(cb)
+            return self.scrollback
 
     def _notify_status(self) -> None:
         st = self.status()

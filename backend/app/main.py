@@ -47,6 +47,7 @@ def _setup_logging():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _setup_logging()
+    os.umask(0o002)  # project workspaces are shared with the sandbox user's group
     config.ensure_dirs()
     db.init_db()
     init_secrets()

@@ -157,11 +157,10 @@ async def terminal_ws(ws: WebSocket, project_id: str):
     def on_status(st: dict):
         loop.call_soon_threadsafe(_put, q, st)
 
-    term.listeners.add(on_out)
     term.status_listeners.add(on_status)
     try:
         await asyncio.to_thread(term.ensure)
-        await ws.send_text(json.dumps({"type": "output", "data": term.scrollback}))
+        await ws.send_text(json.dumps({"type": "output", "data": term.attach(on_out)}))
         await ws.send_text(json.dumps(term.status()))
 
         async def pump():

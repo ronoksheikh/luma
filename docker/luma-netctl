@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# luma-netctl — root helper (called via sudo by the backend) that controls network access
+# for the sandbox user `luma` with iptables owner matching.
+#   init  : block the sandbox from the Luma API port (always), network ON
+#   on    : allow outbound network for the sandbox; restore its sudo rights
+#   off   : reject all non-loopback traffic from the sandbox user and revoke its sudo
+#           rights (otherwise it could simply flush the rules again)
+set -euo pipefail
+U=luma
+PORT="${LUMA_PORT:-8080}"
+CHAIN=LUMA_SANDBOX
+
+ipt() { iptables "$@" 2>/dev/null; ip6tables "$@" 2>/dev/null || true; }
+
+ensure_chain() {
+  iptables -N "$CHAIN" 2>/dev/null || true
+  ip6tables -N "$CHAIN" 2>/dev/null || true
+  iptables -C OUTPUT -m owner --uid-owner "$U" -j "$CHAIN" 2>/dev/null || iptables -I OUTPUT 1 -m owner --uid-owner "$U" -j "$CHAIN"
+  ip6tables -C OUTPUT -m owner --uid-owner "$U" -j "$CHAIN" 2>/dev/null || ip6tables -I OUTPUT 1 -m owner --uid-owner "$U" -j "$CHAIN" 2>/dev/null || true
+}
+
+base_rules() {
+  ipt -F "$CHAIN"
+  # never let the agent administer Luma Studio through its own API
+  ipt -A "$CHAIN" -o lo -p tcp --dport "$PORT" -j REJECT
+}
+
+sudo_on() {
+  if [ "${LUMA_SANDBOX_SUDO:-1}" != "0" ]; then
+    echo "$U ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/luma-sandbox
+    chmod 440 /etc/sudoers.d/luma-sandbox
+  fi
+}
+
+case "${1:-}" in
+  init)
+    command -v iptables >/dev/null
+    ensure_chain
+    base_rules
+    ;;
+  on)
+    ensure_chain
+    base_rules
+    sudo_on
+    echo "network ON for $U"
+    ;;
+  off)
+    ensure_chain
+    base_rules
+    ipt -A "$CHAIN" -o lo -j RETURN
+    ipt -A "$CHAIN" -j REJECT
+    rm -f /etc/sudoers.d/luma-sandbox
+    pkill -KILL -u "$U" sudo 2>/dev/null || true
+    echo "network OFF for $U (sudo revoked)"
+    ;;
+  status)
+    iptables -S "$CHAIN" 2>/dev/null || echo "no chain"
+    ;;
+  *)
+    echo "usage: luma-netctl init|on|off|status" >&2
+    exit 2
+    ;;
+esac

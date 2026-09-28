@@ -107,10 +107,7 @@ def thumbnail(kind: str, path: Path, project_dir: Path, size: int = 320) -> str 
         from PIL import Image
 
         if kind == "svg":
-            import cairosvg
-
-            png = cairosvg.svg2png(url=str(path), output_width=size, unsafe=False)
-            im = Image.open(io.BytesIO(png))
+            im = _svg_thumb(path, size)
         elif kind in ("png", "jpeg", "webp"):
             im = Image.open(path)
         elif kind == "pdf":
@@ -127,6 +124,33 @@ def thumbnail(kind: str, path: Path, project_dir: Path, size: int = 320) -> str 
         return str(out.relative_to(project_dir))
     except Exception:
         return None
+
+
+def _svg_thumb(path: Path, size: int):
+    """Render with luma_engine (fit to the artwork's bounds, works without a viewBox);
+    fall back to cairosvg."""
+    from PIL import Image
+
+    try:
+        import numpy as np
+
+        from luma_engine.svg import SVGDocument
+
+        doc = SVGDocument.load(path)
+        x0, y0, x1, y1 = doc.bounds()
+        w, h = max(x1 - x0, 1e-6), max(y1 - y0, 1e-6)
+        s = (size - 16) / max(w, h)
+        W, H = max(1, int(round(w * s)) + 16), max(1, int(round(h * s)) + 16)
+        m = np.array([[s, 0, 8 - x0 * s], [0, s, 8 - y0 * s], [0, 0, 1]])
+        rgba = doc.render(W, H, matrix=m)
+        a = np.clip(rgba[..., 3:4], 1e-6, 1)
+        rgb = np.where(a > 1e-5, rgba[..., :3] / a, 0)
+        out = np.concatenate([rgb, rgba[..., 3:4]], axis=-1)
+        return Image.fromarray((np.clip(out, 0, 1) * 255).astype("uint8"), "RGBA")
+    except Exception:
+        import cairosvg
+
+        return Image.open(io.BytesIO(cairosvg.svg2png(url=str(path), output_width=size, unsafe=False)))
 
 
 def summarize_for_llm(asset: dict) -> str:

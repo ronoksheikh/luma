@@ -115,6 +115,17 @@ write_lock = threading.RLock()
 def init_db(url: str | None = None) -> None:
     global _engine, _Session
     config.ensure_dirs()
+    import os
+
+    dbf = config.data_dir / "studio.db"
+    for f in (dbf, dbf.with_name("studio.db-wal"), dbf.with_name("studio.db-shm")):
+        if not f.exists():  # create 0600 up front: SQLite copies the mode to the WAL/SHM files
+            os.close(os.open(f, os.O_WRONLY | os.O_CREAT, 0o600))
+        else:
+            try:
+                os.chmod(f, 0o600)
+            except OSError:
+                pass
     _engine = create_engine(url or config.db_url, connect_args={"check_same_thread": False, "timeout": 30})
 
     @event.listens_for(_engine, "connect")
@@ -126,6 +137,7 @@ def init_db(url: str | None = None) -> None:
         cur.close()
 
     Base.metadata.create_all(_engine)
+
     _Session = sessionmaker(_engine, expire_on_commit=False)
 
 
