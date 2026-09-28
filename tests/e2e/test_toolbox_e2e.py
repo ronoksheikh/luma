@@ -11,7 +11,7 @@
 
     docker compose up -d --build
     LUMA_E2E_URL=http://127.0.0.1:8080 pytest -m e2e tests/e2e/test_toolbox_e2e.py -v
-    (set LUMA_E2E_BASE_IMAGE=luma-base-ubuntu:24.04 to rebuild on the fallback base)
+    (LUMA_E2E_BUILD_CMD overrides the rebuild command, e.g. for proxies or the Ubuntu fallback base)
 """
 import os
 import subprocess
@@ -141,8 +141,11 @@ def test_toolbox_in_the_container_and_across_a_rebuild():
     c.close()
 
     # --- rebuild + recreate the container: the image is immutable, /data persists
-    base = os.environ.get("LUMA_E2E_BASE_IMAGE")  # e.g. luma-base-ubuntu:24.04 where Debian mirrors are blocked
-    sh("docker", "compose", "build", *(["--build-arg", f"BASE_IMAGE={base}"] if base else []), cwd=str(ROOT), timeout=3600)
+    custom = os.environ.get("LUMA_E2E_BUILD_CMD")  # e.g. a script adding proxy build-args / a fallback BASE_IMAGE
+    if custom:
+        sh("bash", "-c", custom, cwd=str(ROOT), timeout=3600)
+    else:
+        sh("docker", "compose", "build", cwd=str(ROOT), timeout=3600)
     sh("docker", "compose", "up", "-d", "--force-recreate", cwd=str(ROOT), timeout=600)
     wait(lambda: sh("docker", "inspect", "-f", "{{.State.Health.Status}}", CONTAINER, check=False).stdout.strip() == "healthy", 600, 3)
     c = client()

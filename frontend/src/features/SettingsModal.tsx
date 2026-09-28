@@ -102,6 +102,8 @@ const LIMITS: { key: string; label: string; hint: string; step?: number; min?: n
   { key: "plan_required_after_steps", label: "Plan required after (steps)", hint: "Without a plan, only planning tools run after this. 0 = off.", min: 0 },
   { key: "max_cost_usd", label: "Cost cap per run ($)", hint: "Stops the run gracefully. 0 = none.", step: 0.5, min: 0 },
   { key: "max_tokens", label: "Token cap per run", hint: "Stops the run gracefully. 0 = none.", step: 10000, min: 0 },
+  { key: "toolbox_max_tools", label: "Toolbox tools per step", hint: "Most relevant + most used; the rest via toolbox_search.", min: 0, max: 100 },
+  { key: "skill_required_after_steps", label: "Skill required after (steps)", hint: "finish asks for a playbook after a hard run. 0 = off.", min: 0 },
 ];
 
 function Limits() {
@@ -144,6 +146,14 @@ function Limits() {
           description={server?.network_control_available
             ? "On so package installs work. Off blocks all outbound traffic from the sandbox user."
             : "The container has no network helper, so this can't be enforced here (see README)."} />
+        <div className="my-4 h-px bg-separator" />
+        <Toggle isSelected={!!s.toolbox_network} onChange={(v) => { setS({ ...s, toolbox_network: v }); save({ toolbox_network: v }); }}
+          label="Toolbox tools may use the network"
+          description="Only tools whose manifest declares network: true, and only while this is on. Others run firewalled." />
+        <div className="my-4 h-px bg-separator" />
+        <Toggle isSelected={!!s.allow_global_promotion} onChange={(v) => { setS({ ...s, allow_global_promotion: v }); save({ allow_global_promotion: v }); }}
+          label="Autopilot may promote tools to global"
+          description="With project Autopilot, tool_promote skips the approval card. The promotion scan still applies." />
       </div>
       <div className="flex justify-end">
         <Button isPending={saving} onPress={() => save(Object.fromEntries(LIMITS.filter((l) => Number.isFinite(s[l.key])).map((l) => [l.key, s[l.key]])))}>

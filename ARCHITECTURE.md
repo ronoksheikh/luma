@@ -53,3 +53,26 @@
   random tokens stored hashed in SQLite; passwords are scrypt hashes.
 * **Everything is an event.** Every UI update is a persisted, typed event, so reloading
   the page replays the full history and then continues live.
+
+## Toolbox (self-extending tools)
+
+```
+agent loop ──(each step)──► registry = built-ins + ≤N toolbox tools (FTS5 relevance, usage, this run's)
+   │                                              ▲
+   │ tool call                                     │ toolbox_tools / skills / plugins (SQLite index + FTS5)
+   ▼                                              │  ◄── sync ── /data/toolbox (git) + work/tools (git outside workspace)
+backend/app/toolbox/execute.py ── sudo -u luma [-g lumanonet] env -i … /data/venv/bin/python -m luma_engine.toolkit
+   ▲  stdin: {params, workspace, out_dir, limits}      │ stdout JSON lines: log · progress · image · call · result/error
+   └──────── call → AgentLoop.invoke (gates, budgets) ◄┘
+```
+
+* `backend/app/toolbox/`: `manifest` (tool.yaml), `store` (index, FTS, stats, audit), `lifecycle` (create / test /
+  register / update / rollback / promote / deprecate / delete), `scan` (ruff + security + promotion scans),
+  `execute` (sandboxed runner + RPC), `venv` (persistent layered venv + lock), `skills`, `plugins` (plugins, templates,
+  registry.json), `gitrepo`, `boot` (seeding, background registration).
+* `luma_engine/toolkit.py` is the only code that runs inside a tool process (harness, `Ctx`, guards, `make_test_ctx`);
+  `luma_engine/plugins` discovers enabled plugins through `registry.json` with a meta-path finder.
+* Decisions: files are the source of truth and the DB is an index; a tool is callable only when the hash of its
+  files equals the hash its tests passed on; the global toolbox is backend-written only (the agent reaches it through
+  `tool_promote`, gated by a scan and the user's approval); network isolation is kernel-level via a firewalled group
+  (same UID as the terminal) rather than a separate user.

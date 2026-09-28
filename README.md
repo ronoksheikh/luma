@@ -211,6 +211,167 @@ the parent, they are cancelled with it, and their timelines nest under the paren
 | `Ctrl`/`⌘` `K` | command palette: jump to a project, artifact or todo; start the demo; export all |
 | `Ctrl`/`⌘` `,` | settings |
 
+## Toolbox: the director builds its own tools
+
+![Toolbox](docs/screenshots/toolbox_tools.png)
+
+While it works, the director grows a personal toolkit, like an expert engineer: quick scripts for exploration,
+**tools** (tested, versioned, callable like any built-in tool) for the code worth keeping, **engine plugins** (new
+effects, instruments, QC checks), **templates** made from successful scenes, and **skills** — written playbooks of
+how it solved hard problems, so later runs start from them.
+
+Everything lives in `/data` and survives `docker compose up --build`:
+
+```
+/data/toolbox/                  GLOBAL (every project), a git repo — tools/<name>@<version> are tags
+  tools/<name>/                 tool.yaml · main.py · test_tool.py · README.md · fixtures/ (≤ 2 MB)
+  skills/<name>/SKILL.md        playbooks
+  plugins/<name>/ registry.json luma_engine extensions (fx · template · instrument · qc_check)
+  requirements.lock             pinned union of every tool dependency
+/data/projects/<id>/work/
+  scripts/                      one-off scripts (the default place for new code)
+  tools/<name>/                 project tools (override a global tool of the same name)
+/data/venv/                     persistent Python venv for tool dependencies (layered over the image's)
+/data/opt/bin/                  downloaded binaries (on the sandbox PATH)
+```
+
+Project `tools/` and `scripts/` are versioned in a repository kept **outside** the workspace (`/data/git/<id>.work`),
+so the agent's shell can neither rewrite nor corrupt the history. On boot the studio checks `/data/venv` against
+the lock file and reinstalls anything missing (logged; Toolbox → summary shows it).
+
+### The lifecycle
+
+```
+toolbox_search("measure the lockup gap on a board")      # 1. reuse before build (also skill_search)
+script_write("measure_gap.py", …) → script_run(…)         # 2. explore in work/scripts/
+tool_create(name, manifest, main_py, test_py, readme)     # 3. manifest + tests + README; ruff; deps → /data/venv; tests run
+tool_test(name)                                           # 4. pytest in the sandbox
+tool_register(name)                                       # 5. callable as `name` from the next step (and in future runs)
+measure_lockup_gap(board="assets/board.png")              # 6. a first-class tool (or toolbox_call)
+tool_update(name, main_py=…, reason=…, bump="minor")      # 7. new version; re-tested, re-registered; old versions tagged
+tool_promote(name, reason=…)                              # 8. project → global, after the user approves the diff
+skill_write(name, SKILL.md)                               # 9. record the lesson
+```
+
+![Tool created](docs/screenshots/card_tool_created.png)
+
+The timeline shows each step: a **tool_create** card with the new files as diffs and the test results, a
+**🧰 New tool available** badge after `tool_register`, and **promotion requests as approval cards with the diff, the
+tests and the README**:
+
+![Promotion approval](docs/screenshots/card_promotion_approval.png)
+
+### Tool manifest (`tool.yaml`) and runtime
+
+```yaml
+name: fit_lockup_to_reference         # snake_case, unique within its scope; never a built-in name
+version: 1.2.0                        # semver; tool_update bumps it
+scope: global | project
+description: >                        # what the model reads: 1–3 precise sentences
+  Fits icon+wordmark placement to a reference image by least squares…
+parameters: {type: object, properties: {reference: {type: string}}, required: [reference]}   # JSON Schema 2020-12
+returns: {type: object}               # the result is validated against it
+dependencies: [numpy==2.1.*]          # pinned (==); installed into /data/venv, recorded in requirements.lock
+timeout_s: 300
+resources: {max_memory_mb: 2048}
+network: false                        # true only works while Settings → "Toolbox tools may use the network" is on
+produces_files: true
+tags: [layout, brand]
+author: agent | user
+created_from_run: r_…
+```
+
+`main.py` exposes `run(params, ctx) -> dict`. `ctx` gives `workspace`, `out_dir`, `out(name)` (a file in out_dir),
+`path(p)` (a workspace path, confined), `log(msg)`, `progress(pct, msg)`, `emit_image(path)`, `cancelled()` and
+`call_tool(name, params)` — an RPC back to the studio for ElevenLabs tools, other toolbox tools and a few read-only
+built-ins, **through the same budgets and approval gates as the agent's own calls** (tools never see API keys).
+Tests use `from luma_engine.toolkit import make_test_ctx` (fake `call_tool` handlers included).
+
+Tools run as `python -m luma_engine.toolkit` in the sandbox — same user, limits and scrubbed environment as the
+terminal: params on stdin, JSON lines back (logs and progress stream into the tool card). Params and results are
+checked against the schemas; a bad call gets a precise error, a crash / timeout / memory blow-up is an error result,
+never a backend problem.
+
+### Registry, ranking and health
+
+The model sees the built-in tools **plus at most N toolbox tools per step** (Settings → *Toolbox tools per step*,
+default 15): the ones registered or used in this run, the most relevant to the current todo (SQLite FTS5 over names,
+descriptions, READMEs and tags), then the most used. Every registered tool stays callable by name or `toolbox_call`,
+and discoverable with `toolbox_search`. Only enabled tools whose tests passed **on the current files** are offered —
+editing a registered tool by hand marks it *modified* until it is re-tested. Per tool the studio tracks calls,
+success rate, average duration, the last error and the runs that used it. **A tool that fails 3 times in a row is
+disabled**, a blocked "Fix tool X" todo (with the failing traces) is added to the plan and you get a notification.
+
+### Skills
+
+`SKILL.md` = front-matter (`name`, `description` = when to use it, `tags`, `tools_used`, `created_from_run`) and the
+sections **When to use · Steps · Pitfalls · Verification · Example**. At the start of every run the skills most
+relevant to the brief, the assets and the request are summarised into the director's context; it reads the full
+text with `skill_read`. After a hard run (many steps, repeated tool rewrites, a tool that broke), `finish` asks for a
+new or updated skill. Seeded skills: `brand_discovery`, `logo_split_exact`, `lockup_fit_from_board`,
+`hidden_board_elements_extraction`, `motion_blur_and_hdr_compositing`, `sound_design_event_sync`,
+`final_frame_exactness_qc`.
+
+![Skill](docs/screenshots/skill_viewer.png)
+
+### Seeded tools
+
+Ported from engine utilities, each with tests — tested and registered at first boot:
+
+| Tool | What it does |
+| --- | --- |
+| `svg_split_exact` | Split a logo shape at its pivot / along lines with an exact area check (< 1e-9) |
+| `lockup_fit_reference` | Measure a mark's placement on a board by least squares |
+| `board_residual_extract` | Reconstruct a board's hidden gradient; extract faint lines by residual subtraction |
+| `audio_event_spectrogram` | Spectrogram with event markers + per-event onset offsets (sync check) |
+| `reframe_safe_areas` | Batch 9:16 / 1:1 / 4:5 end-card check against the safe areas |
+| `palette_from_image` | Palette with shares and WCAG contrast pairs |
+| `final_frame_exactness` | Last frame vs the reference end card: MAD, max, heatmap |
+
+### Plugins and templates
+
+`plugin_create(kind="fx|instrument|qc_check", name, code, tests)` adds an engine extension under
+`toolbox/plugins/`; once its tests pass it is enabled in `registry.json` and scene code can
+`from luma_engine.plugins import <name>` (QC-check plugins run inside every `qc_report`).
+`template_save(name, scene_path, params_schema, preview_video)` turns a successful scene into a template plugin with
+its brand-specific values (logo, colours, fonts, wordmark, timings) as parameters, bundled assets, a thumbnail and a
+preview. The **Templates** gallery (left nav) starts a new project from one: its assets are copied and
+`work/scene.py` builds the template with editable `PARAMS`.
+
+![Templates](docs/screenshots/templates_gallery.png)
+
+### The Toolbox UI
+
+**Toolbox** in the left nav (tools, skills, plugins, templates with counts) and as a right-pane tab. Tools can be
+filtered by tags, author (agent/user), status (enabled / disabled / failing / modified / deprecated) and scope. The
+tool detail shows the manifest, the rendered README, the source and tests (with **Run tests**), usage stats and recent
+calls (linked to their runs), the **version history with diffs and revert**, and enable/disable, promote and delete.
+**Try it** is a form generated from the tool's JSON Schema that runs the tool in the current project and shows the
+result, images and logs. You can author tools and skills by hand too — same validation, tests and scan, marked
+`author: user`.
+
+| Detail | Try it | History |
+| --- | --- | --- |
+| ![](docs/screenshots/tool_detail.png) | ![](docs/screenshots/tool_try_it.png) | ![](docs/screenshots/tool_diff.png) |
+
+### Safety rules for agent-written code
+
+- Tools run with **exactly the terminal's sandbox rights** (same non-root user, limits and scrubbed environment) —
+  plus: a `network: false` tool runs with the primary group `lumanonet`, whose sockets the container firewall rejects
+  (kernel-enforced, so even a `curl` subprocess is blocked); in-process guards refuse writes outside the workspace /
+  `out_dir` / temp dir, reads of process environments, Luma's secrets / database / git repos, raw sockets and `sudo`.
+- **Static checks before registering**: ruff (syntax errors and undefined names block), blocked patterns
+  (`/proc/*/environ`, the Docker socket, `/data/secrets`, raw sockets, `sudo`, API keys read from the environment,
+  network imports when `network: false`), secret detection, file-size limits, no symlinks.
+- **Promotion to global** additionally blocks project-specific values — absolute or project paths, project ids, the
+  project's asset names, brand colours and names — and asks the agent to parameterise them; the user approves the
+  diff unless *Autopilot* **and** *Autopilot may promote tools to global* are both on. Deleting a global tool needs
+  approval too.
+- The global toolbox is written only by the backend (read-only for the sandbox). Every change is a git commit, and
+  every global change has an audit-log entry (who / what / when / run): `GET /api/toolbox/audit`.
+- A crash in a tool never crashes the backend. With `LUMA_SANDBOX_SUDO=1` (the default) sandbox code can still
+  escalate *inside the container* — the container remains the security boundary; set it to `0` for a hardened setup.
+
 ## Connecting a model
 
 Settings → Connections → Language model. Pick a preset or enter any OpenAI-compatible base URL:
@@ -286,6 +447,8 @@ every request.
 | `LUMA_JOB_CONCURRENCY` | `1` | Render jobs that may run at once. |
 | `LUMA_SANDBOX_SUDO` | `1` | Passwordless `sudo` for the sandbox user inside the container. |
 | `LUMA_CPUS`, `LUMA_MEMORY` | `4`, `8g` | Container limits (compose). |
+| `PIP_INDEX_URL`, `PIP_EXTRA_INDEX_URL`, `PIP_FIND_LINKS`, `PIP_NO_INDEX` | | Passed to the tool-dependency installs (mirrors / air-gapped wheels). |
+| `LUMA_VENV_DIR` | `/data/venv` | The persistent venv for tool dependencies. |
 
 ## Your logo
 
@@ -314,7 +477,9 @@ cd backend && LUMA_DATA_DIR=../data LUMA_PORT=8080 python -m app.main
 # UI tests (Playwright) against an in-process server and a scripted director; saves screenshots
 LUMA_CHROMIUM=/path/to/chrome LUMA_SCREENSHOTS=docs/screenshots pytest -m ui tests/ui
 
-# end-to-end, against a running container (includes a docker restart mid-render + Resume)
+# end-to-end, against a running container (includes a docker restart mid-render + Resume, and the toolbox:
+# seeds, a real pinned dependency in /data/venv, per-manifest network firewalling, and persistence across
+# `docker compose build` + a recreated container — LUMA_E2E_BUILD_CMD overrides the rebuild command)
 docker compose up -d --build
 LUMA_E2E_URL=http://127.0.0.1:8080 pytest -m e2e tests/e2e -v
 ```

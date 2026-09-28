@@ -59,6 +59,12 @@ def _sandbox_run(argv: list[str], timeout: float = 900, extra_env: dict | None =
     return subprocess.run(sandbox_argv(argv, env), capture_output=True, text=True, timeout=timeout, env=env, cwd=str(config.data_dir))
 
 
+def _pip(*args: str) -> list[str]:
+    """pip from the IMAGE (pinned; uses the system trust store) installing into the venv (`--python`), so the venv
+    needs no pip of its own and installs behave exactly like the image's."""
+    return [base_python(), "-m", "pip", "--python", str(venv_python()), *args]
+
+
 def _py_version(py: str) -> str | None:
     try:
         r = subprocess.run([py, "-c", "import sys;print('%d.%d' % sys.version_info[:2])"], capture_output=True, text=True, timeout=30)
@@ -125,10 +131,10 @@ def _ensure(install_missing: bool) -> dict:
     if have is None or have != want:
         if vd.exists() and any(vd.iterdir()) and have and have != want:
             _note(f"interpreter changed ({have} → {want}): recreating {vd}")
-            argv = [base_python(), "-m", "venv", "--clear", str(vd)]
+            argv = [base_python(), "-m", "venv", "--without-pip", "--clear", str(vd)]
         else:
             _note(f"creating {vd}" if not (vd / "pyvenv.cfg").exists() else f"repairing {vd} (interpreter missing)")
-            argv = [base_python(), "-m", "venv", str(vd)]
+            argv = [base_python(), "-m", "venv", "--without-pip", str(vd)]
         vd.mkdir(parents=True, exist_ok=True)
         r = _sandbox_run(argv, timeout=300)
         if r.returncode != 0:
@@ -151,7 +157,7 @@ def _ensure(install_missing: bool) -> dict:
     state["missing"] = missing
     if missing and install_missing:
         _note(f"reinstalling {len(missing)} locked package(s) missing from {vd}: {', '.join(missing)}")
-        r = _sandbox_run([str(venv_python()), "-m", "pip", "install", "--no-deps", *missing])
+        r = _sandbox_run(_pip("install", "--no-deps", *missing))
         if r.returncode != 0:
             state["status"] = "degraded"
             _note(f"reinstall failed (tools that need these will fail until it succeeds): {(r.stderr or r.stdout)[-600:]}")
@@ -172,7 +178,7 @@ def install(specs: list[str]) -> tuple[bool, str]:
             ensure(install_missing=False)
         if state.get("status") not in ("ok", "degraded"):
             return False, "the tool venv is not available: " + "; ".join(state["log"][-2:])
-        r = _sandbox_run([str(venv_python()), "-m", "pip", "install", *specs])
+        r = _sandbox_run(_pip("install", *specs))
         out = (r.stdout + r.stderr)[-4000:]
         if r.returncode != 0:
             return False, out

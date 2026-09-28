@@ -644,3 +644,71 @@ def test_mocked_lifecycle_across_two_projects(server, booted):
     st = c.get("/api/toolbox/tools/global/laplacian_sharpness").json()
     assert st["stats"]["calls"] >= 2 and ra in st["stats"]["runs"] and rb in st["stats"]["runs"]
     assert st["author"] == "agent" and st["created_from_run"] == ra
+
+
+# ------------------------------------------------------------------------------------------------ a new effect, end to end
+EFFECT_SCENE = '''from luma_engine.plugins import sweep_glint_fx
+from luma_engine.scene import Scene
+
+
+class GlintOutro(Scene):
+    background: str = "#0B0F2A"
+    band_color: tuple = (0.9, 0.95, 1.0)
+
+    def draw(self, frame, t):
+        frame.fill(self.background)
+        sweep_glint_fx.apply(frame, t / self.duration, color=self.band_color)
+
+
+scene = GlintOutro(width=160, height=90, fps=12, duration=1)
+'''
+
+
+def test_agent_builds_an_effect_plugin_uses_it_in_the_video_and_saves_a_template(client, project, booted):
+    """The mocked counterpart of 'a real run asked for a new effect': plugin with tests → used in the rendered film →
+    the scene saved as a template."""
+    pid = project["id"]
+    r = client.patch(f"/api/projects/{pid}", json={"settings": {**project["settings"], "width": 1080, "height": 1080, "fps": 24, "duration": 3}})
+    assert r.status_code == 200, r.text
+    script = [
+        {"text": "A glint sweep is new — checking the toolbox first.", "tool_calls": [
+            call("todo_write", items=[{"title": "Glint sweep effect", "acceptance_criteria": "plugin tests pass; used in the film"}]),
+            call("toolbox_search", query="glint light sweep effect", kinds=["plugin"])]},
+        {"tool_calls": [call("plugin_create", kind="fx", name="sweep_glint_fx", code=FX_CODE, tests=FX_TEST.replace("chrome_sweep_fx", "sweep_glint_fx"),
+                             description="A soft diagonal light band that sweeps across the frame (liquid chrome glint).")]},
+        {"tool_calls": [call("write_file", path="work/scene.py", content=EFFECT_SCENE)]},
+        {"tool_calls": [call("render_final", scene_path="work/scene.py", wait_s=300)]},
+        {"tool_calls": [call("template_save", name="glint_outro", scene_path="work/scene.py", preview_video="renders/final/final.mp4",
+                             description="A night background crossed by a liquid chrome glint (uses the sweep_glint_fx plugin).", title="Glint outro",
+                             params_schema={"type": "object", "properties": {"background": {"type": "string", "default": "#0B0F2A"}}})]},
+        {"text": "Done: the effect is a plugin, the film uses it, and the scene is a template."},
+    ]
+    with MockServer(script) as mock:
+        rid = start(client, project, mock, text="add a liquid chrome glint sweep to the outro")
+        try:
+            wait_for(lambda: client.get(f"/api/runs/{rid}").json()["status"] in ("idle", "completed", "failed", "stopped"), timeout=300, interval=0.5)
+        except AssertionError:
+            raise AssertionError(f"status {client.get(f'/api/runs/{rid}').json()['status']}; so far: "
+                                 f"{[(n, r[:600]) for n, r in results(mock.state['requests'][-1])]}") from None
+        outs = results(mock.state["requests"][-1])
+    by = {n: r for n, r in outs}
+    assert "plugin sweep_glint_fx v1.0.0 enabled" in by["plugin_create"], by["plugin_create"]
+    assert "render" in by["render_final"].lower() and "error" not in by["render_final"][:40].lower(), by["render_final"][:800]
+    mp4 = Path(os.environ["LUMA_DATA_DIR"]) / "projects" / pid / "renders/final/final.mp4"
+    assert mp4.exists()
+    import cv2
+
+    cap = cv2.VideoCapture(str(mp4))
+    frames = []
+    ok, f = cap.read()
+    while ok:
+        frames.append(f)
+        ok, f = cap.read()
+    assert len(frames) == 72 and frames[0].shape[:2] == (1080, 1080)
+    c0, cm = frames[0][540, 540].astype(int).sum(), frames[36][540, 540].astype(int).sum()
+    assert cm > c0 + 200, (c0, cm)  # the glint crosses the centre mid-film
+    assert "template glint_outro v1.0.0 saved" in by["template_save"], by["template_save"]
+    types = [e["type"] for e in events(client, rid)]
+    assert "plugin_created" in types and "template_saved" in types
+    tpl = {t["name"]: t for t in client.get("/api/toolbox/templates").json()}["glint_outro"]
+    assert tpl["enabled"] and tpl["thumbnail"] and tpl["preview"]

@@ -68,9 +68,9 @@ def sandbox_env(workdir: str, extra: dict | None = None) -> dict:
     """A minimal, secret-free environment for sandbox processes."""
     home = os.path.expanduser(f"~{config.sandbox_user}") if config.sandbox_user else os.environ.get("HOME", "/tmp")
     path = os.environ.get("LUMA_SANDBOX_PATH") or os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin")
-    for py_bin in (os.path.dirname(config.sandbox_python or sys.executable), os.path.dirname(sandbox_python())):
+    for py_bin in (os.path.dirname(config.sandbox_python or sys.executable), os.path.dirname(sandbox_python()), str(config.opt_dir / "bin")):
         if py_bin and py_bin not in path.split(":"):
-            path = py_bin + ":" + path  # the terminal's python is the engine's python (the tool venv first)
+            path = py_bin + ":" + path  # the tool venv's python first; /data/opt/bin for downloaded binaries (persistent)
     env = {
         "PATH": path,
         "HOME": home,

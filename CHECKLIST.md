@@ -119,3 +119,74 @@ Legend: `[x]` done **and verified by running it**, `[~]` done with a caveat note
 - [~] **real OpenRouter run** (definition of done #3): **not run** — no API key is available in this environment. Everything the agent does was exercised with a scripted OpenAI-compatible server; token cost uses OpenRouter's `pricing` fields when the model list provides them.
 - [x] e2e against the rebuilt container (9 tests): health, login required, demo 300 frames / 60 fps / AAC / QC, sandbox isolation, UI smoke, **`docker restart` mid-render → interrupted → Resume → render re-queued with finished frames kept → video with chapters presented → QC passes → finished** (definition of done #2)
 - [~] the Docker image was verified on the Ubuntu 24.04 fallback base (Debian mirrors are blocked from this build environment); new system dependency: `tesseract-ocr`
+
+---
+
+# Phase 3 — self-extending Toolbox (agent-written tools, skills & templates)
+
+## P3.1 — filesystem + venv persistence
+- [x] `/data/toolbox` (tools / skills / plugins, `requirements.lock`) is a git repo written only by the backend (read-only for the sandbox); tool versions are tags `<tool>@<version>`
+- [x] project `work/tools/` + `work/scripts/` versioned in a repo whose git dir lives outside the workspace (`/data/git/<project>.work`); every create / update / revert / promotion is a commit
+- [x] `/data/venv` layered over the image venv (`.pth` → image site-packages), created as the sandbox user; boot check against the lock reinstalls missing packages (logged); `/data/opt/bin` on the sandbox PATH; terminal, jobs, renders and tools use the venv python
+- [x] test: interpreter link removed (rebuilt image) → repaired, packages kept; venv deleted → rebuilt and reinstalled from the lock (local wheel, offline)
+
+## P3.2 — manifest + runner
+- [x] `tool.yaml` validation (meta-schema, snake_case, not a built-in name, semver, JSON Schema 2020-12 for parameters/returns, pinned dependencies) — test
+- [x] `python -m luma_engine.toolkit`: params on stdin, JSON lines out (log / progress / image / call / result / error), the tool's prints go to stderr; `ctx` = workspace, out_dir, out(), path(), log, progress, emit_image, cancelled (SIGTERM), call_tool
+- [x] params and results validated against the schemas (clear errors; bad params are not counted as tool failures) — test
+- [x] guards: RLIMIT_DATA / FSIZE / CORE, audit hook refusing writes outside workspace/out_dir/tmp, reads of `/proc/*/environ`, secrets, DB and git repos, raw sockets, `sudo`, and sockets when network is off — test; crash / timeout / memory blow-up become error results, the backend stays healthy — test
+- [x] `ctx.call_tool` RPC over stdin/stdout → ElevenLabs tools, other toolbox tools and read-only built-ins, through the approval gates and budgets (no keys in tools) — test: over-budget `el_tts` refused before reaching ElevenLabs
+
+## P3.3 — toolbox tools + dynamic registry
+- [x] `toolbox_search` (FTS5 over names, descriptions, READMEs, tags and skills; term-coverage filter), `toolbox_list`, `toolbox_read`, `toolbox_call`
+- [x] `script_write` / `script_run` (streamed); reuse-before-build enforced: `script_write` / `tool_create` / `plugin_create` refused until `toolbox_search` or `skill_search` ran in the run
+- [x] `tool_create` (ruff format + fixes, lint, deps into `/data/venv` + lock, tests), `tool_test`, `tool_register` (manifest + static checks + tests on the current files), `tool_update` (version bump, re-test, re-register or disable), `tool_rollback`, `tool_promote`, `tool_deprecate`, `tool_delete`
+- [x] registry = built-ins + global + project tools (project overrides global — test); per step at most N (default 15) toolbox tools: registered/used in this run, FTS-relevant to the in-progress todo, most used; the rest via `toolbox_search` / `toolbox_call`; a disabled tool called by name says why
+- [x] dynamic refresh: a tool registered at step k is in the function list at step k+1 — test (mock LLM request inspection)
+- [x] stats per tool (calls, success rate, avg duration, last error, runs) shown in the UI and used for ranking; 3 failures in a row → auto-disabled, blocked "Fix tool X" todo with the traces, notification, `tool_disabled` event — test
+- [x] a hand-edited registered tool is "modified" (not callable) until re-tested — test
+
+## P3.4 — skills
+- [x] `SKILL.md` format validated (front-matter + When to use / Steps / Pitfalls / Verification / Example); `skill_write` / `skill_read` / `skill_search`; user authoring + edit in the UI (author: user) — test
+- [x] relevant skills (FTS over brief + asset names + request) summarised into every run's system prompt — test; full text on demand
+- [x] `finish` asks for a skill after a hard run (steps > `skill_required_after_steps`, ≥ 3 tool revisions, or a tool that broke); after finishing, promotable project tools are proposed (notification)
+- [x] seeded skills: brand_discovery, logo_split_exact, lockup_fit_from_board, hidden_board_elements_extraction, motion_blur_and_hdr_compositing, sound_design_event_sync, final_frame_exactness_qc
+- [x] seeded global tools (7, ported from engine utilities, each with tests; tested and registered at first boot): svg_split_exact, lockup_fit_reference, board_residual_extract, audio_event_spectrogram, reframe_safe_areas, palette_from_image, final_frame_exactness — test
+
+## P3.5 — plugins + templates
+- [x] `plugin_create(kind=fx|instrument|qc_check)`; enabled in `registry.json` only when tests + scan pass; `from luma_engine.plugins import x` via a meta-path finder (disabled plugins refuse to import with a reason) — test: an fx plugin used by a scene rendered with the CLI
+- [x] `qc_check` plugins run inside `qc_report`; template plugins appear in `luma_engine templates` / `get_template`
+- [x] `template_save` (params with defaults, bundled assets, preview + thumbnail, generated render test); gallery + "Use template" → new project whose `work/scene.py` builds the template with editable PARAMS — test: the new project renders an MP4 of the right size
+
+## P3.6 — UI
+- [x] Toolbox left-nav section (tools / skills / plugins / templates with counts) and right-pane tab; filters: search, tags, author, status, scope
+- [x] tool detail: manifest, rendered README, highlighted source, tests + Run tests, usage stats + recent calls (links to runs), version history with diff and revert, enable/disable, promote (with the promotion scan result), delete
+- [x] "Try it" form generated from the JSON Schema (strings, numbers, booleans, enums, JSON for arrays/objects) with result, images and logs
+- [x] timeline: `tool_create` card (file diffs + tests + scan), "🧰 New tool available" badge, updates / promotions / disabled tools / skills / plugins / templates cards; promotion approval card with diff, tests and README
+- [x] skills viewer (Markdown) with edit + new skill; plugins list with enable switch + code; templates gallery (hover-play previews)
+- [x] manual tool authoring (same validation / tests / scan, `author: user`); Settings: toolbox tools per step, skill-after-steps, toolbox network, Autopilot global promotion; command palette entries
+- [x] Playwright: Toolbox tab + filters, tool detail, Run tests, Try it, diff view + revert, skills viewer, templates gallery, tool_create card, registered badge, promotion approval → promoted (screenshots in docs/screenshots)
+
+## P3.7 — security
+- [x] static checks before register: ruff (E9/F63/F7/F82 block), blocked patterns (proc environ, docker socket, Luma secrets/DB, raw sockets, sudo, API keys from env, network imports with `network: false`), secret detection (redaction patterns, `key = "…"`, high-entropy literals), size limits, no symlinks, binaries only in fixtures — test
+- [x] promotion scan: absolute/project paths, project ids, project asset names, brand colours from memory/brief/assets, brand/project names; approval card with the diff unless Autopilot + "allow global promotion" — test (hard-coded path + fake secret)
+- [x] network off unless the manifest declares it AND Settings allow it: `lumanonet` primary group firewalled by `luma-netctl` (kernel-level; same UID) + in-process guard
+- [x] global changes audited (who / what / when / run) — `GET /api/toolbox/audit`; deleting a global tool needs approval
+- [~] with `LUMA_SANDBOX_SUDO=1` (default) sandbox code — terminal or tool — can still escalate inside the container; the container stays the security boundary (documented; set 0 for hardened setups)
+
+## P3.8 — backend, events, tests, docs
+- [x] Alembic 0003: `toolbox_tools`, `toolbox_calls`, `skills`, `plugins`, `toolbox_audit`, FTS5 `toolbox_fts`; upgrade of a 1.0-era DB still keeps all data (test)
+- [x] events `tool_created`, `tool_tested`, `tool_registered`, `tool_updated`, `tool_promoted`, `tool_disabled`, `skill_written`, `plugin_created`, `template_saved` — typed, persisted, replayable
+- [x] mocked end-to-end: search (no match) → script → tool with tests → register → call (seen by the model next step) → skill → promotion proposed → user approves → a second project finds it with `toolbox_search` and reuses it (stats/runs carried over) — test
+- [x] mocked "new effect" run: `plugin_create` (fx, with tests) → scene imports it → `render_final` (1080², 72 frames; the glint is measurably in the film) → `template_save` with the render as preview — test
+- [x] backend + engine: 139 passed (`pytest`; default testpaths are now tests/engine + tests/backend — UI and e2e run explicitly); Playwright: 5 passed (3 long-job + 2 toolbox)
+- [x] e2e against the rebuilt container (Ubuntu fallback base): 10 passed — the 9 earlier ones plus the toolbox test: seeds registered at boot, a user tool with a real pinned dependency (six==1.16.0) installed into /data/venv and locked, `network: false` blocked by the kernel firewall even for a curl subprocess, `network: true` only with the Settings toggle, then `docker build` + recreated container → venv matches the lock without reinstalling, tool (and its versions), skill and seeds still there
+- [x] README "Toolbox" chapter with screenshots and the lifecycle; director prompt "Build your own tools" with the lifecycle cheat-sheet; ARCHITECTURE "Toolbox" section
+
+## P3 — definition of done
+- [x] 1. existing features still work after the rebuild (e2e: health, login, 300-frame demo + QC, sandbox isolation, restart-mid-render resume, UI smoke; backend/engine/Playwright suites green)
+- [x] 2. 7 seeded skills and 7 seeded global tools (ported from engine utilities, each with tests) visible and enabled in the Toolbox
+- [x] 3. the mocked end-to-end scenario passes (`test_mocked_lifecycle_across_two_projects`)
+- [~] 4. **real OpenRouter run: not run** — no API key is available in this environment. The same flow (new effect → plugin with tests → used in the video → scene saved as a template) is covered with the scripted model (`test_agent_builds_an_effect_plugin_uses_it_in_the_video_and_saves_a_template`)
+- [x] 5. tools, venv and skills survive a container rebuild (e2e)
+- [x] 6. all tests pass; README "Toolbox" chapter with screenshots and the lifecycle
