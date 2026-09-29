@@ -239,6 +239,27 @@
   .orb[data-active="true"]::before { opacity: 1; animation: var(--animate-orb-spin); }
 }
 
+/* --- phones: modals and alert dialogs become bottom sheets ------------------------------------------------------- */
+@media (max-width: 639px) {
+  .modal__container, .alert-dialog__container { padding: 0; }
+  .modal__dialog, .alert-dialog__dialog {
+    max-width: 100%;
+    max-height: min(92dvh, var(--visual-viewport-height, 100dvh));
+    border-radius: 20px 20px 0 0;
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  }
+  .modal__dialog::before, .alert-dialog__dialog::before {
+    content: "";
+    align-self: center;
+    flex: none;
+    width: 36px;
+    height: 4px;
+    margin: -10px 0 10px;
+    border-radius: 9999px;
+    background: var(--border);
+  }
+}
+
 .xterm { padding: 10px 12px; height: 100%; }
 .xterm .xterm-viewport { background-color: transparent !important; }
 

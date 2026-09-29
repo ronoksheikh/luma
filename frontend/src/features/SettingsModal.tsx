@@ -30,12 +30,12 @@ export function SettingsModal() {
               </Tabs.ListContainer>
               <Tabs.Panel id="connections" className="pt-6">
                 <section>
-                  <h3 className="text-[15px] text-foreground">Language model</h3>
+                  <h3 className="text-[16px] text-foreground">Language model</h3>
                   <p className="mb-4 mt-0.5 text-sm text-muted">Any OpenAI-compatible endpoint with streaming tool calls.</p>
                   <LlmConnection />
                 </section>
                 <section className="mt-8 border-t border-separator pt-6">
-                  <h3 className="text-[15px] text-foreground">ElevenLabs</h3>
+                  <h3 className="text-[16px] text-foreground">ElevenLabs</h3>
                   <p className="mb-4 mt-0.5 text-sm text-muted">Voice, sound effects and music. Optional.</p>
                   <ElevenLabsConnection />
                 </section>
@@ -206,7 +206,7 @@ function Account() {
         <Button variant="secondary" onPress={logout}>Sign out</Button>
       </div>
       <section className="flex flex-col gap-4">
-        <h3 className="text-[15px] text-foreground">Change password</h3>
+        <h3 className="text-[16px] text-foreground">Change password</h3>
         <SecretField label="Current password" value={cur} onChange={setCur} autoComplete="current-password" />
         <SecretField label="New password" value={next} onChange={setNext} autoComplete="new-password" description="At least 8 characters. You'll be signed out everywhere." />
         {error && <p role="alert" className="text-sm text-danger-ink">{error}</p>}
@@ -217,7 +217,7 @@ function Account() {
         </div>
       </section>
       <section className="flex flex-col gap-3 border-t border-separator pt-6">
-        <h3 className="text-[15px] text-foreground">Saved keys</h3>
+        <h3 className="text-[16px] text-foreground">Saved keys</h3>
         <p className="text-sm text-muted">
           {saved.length ? `Encrypted on this server for your account: ${saved.join(", ").replaceAll("_", " ")}.` : "No keys are saved to your account."}
         </p>

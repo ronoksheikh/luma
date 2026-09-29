@@ -1,11 +1,12 @@
-// Sticky header under the chat title: plan progress · current stage · budget meter; plus the
-// Resume banner for interrupted runs.
+// One quiet status strip under the chat title: orb + stage · plan progress · budget; plus the Resume banner for
+// interrupted runs.
 import { Alert, Button, ProgressBar, Spinner } from "@heroui/react";
-import { ArrowClockwise, CurrencyDollar, Gauge, ListChecks, Timer } from "@phosphor-icons/react";
+import { ArrowClockwise, CurrencyDollar, ListChecks, Timer } from "@phosphor-icons/react";
 import { useState } from "react";
 import { api } from "../lib/api";
 import { ACTIVE, type RunState } from "../lib/run";
 import { useStore } from "../lib/store";
+import { Orb } from "../ui/ai";
 import { Tip, cn, fmtK } from "../ui/kit";
 
 function fmtTime(s: number) {
@@ -19,33 +20,29 @@ export function RunBar({ run }: { run: RunState }) {
   const b = run.budget;
   const st = run.stage;
   if (!p.total && !st && !b) return null;
+  const active = ACTIVE.has(run.status);
   const openPlan = () => { setRightTab("plan"); setMainView("inspector"); };
   const costPct = b?.max_cost_usd ? Math.min(100, (100 * b.cost_usd) / b.max_cost_usd) : null;
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-2 border-b border-separator bg-surface/95 px-4 py-2 backdrop-blur" data-testid="run-bar">
+    <div className="flex h-11 shrink-0 items-center gap-3 border-b border-separator bg-surface px-4 text-xs" data-testid="run-bar">
+      <Orb active={active} size={16} />
+      <div className="min-w-0 shrink-0 basis-auto sm:max-w-[38%]">
+        {st ? (
+          <span className="truncate font-medium">{st.stage} · {Math.round(st.percent)}%{st.eta_s ? <span className="hidden font-normal text-muted sm:inline"> · ~{fmtTime(st.eta_s)} left</span> : null}</span>
+        ) : <span className="text-muted">{active ? "Working" : "Idle"}</span>}
+      </div>
       {p.total > 0 && (
-        <button onClick={openPlan} className="flex min-w-[180px] flex-1 items-center gap-2.5 text-left" aria-label="Open the plan">
-          <ListChecks size={16} className="shrink-0 text-accent-ink" />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-2 text-xs">
-              <span className="truncate">{p.current ? p.current.title : p.done === p.total ? "Plan complete" : "Plan"}</span>
-              <span className="shrink-0 tabular-nums text-muted" data-testid="plan-progress">{p.done} / {p.total}</span>
-            </div>
-            <ProgressBar value={(100 * p.done) / p.total} size="sm" aria-label="Plan progress" className="mt-1">
-              <ProgressBar.Track><ProgressBar.Fill /></ProgressBar.Track>
-            </ProgressBar>
-          </div>
+        <button onClick={openPlan} aria-label="Open the plan"
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 py-1 text-left outline-none transition-colors hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-focus">
+          <ListChecks size={14} className="shrink-0 text-muted" />
+          <span className="hidden min-w-0 truncate text-muted md:inline">{p.current ? p.current.title : p.done === p.total ? "Plan complete" : "Plan"}</span>
+          <span className="ml-auto shrink-0 tabular-nums text-muted" data-testid="plan-progress">{p.done} / {p.total}</span>
+          <ProgressBar value={(100 * p.done) / p.total} size="sm" aria-label="Plan progress" className="w-14 shrink-0 sm:w-20">
+            <ProgressBar.Track><ProgressBar.Fill /></ProgressBar.Track>
+          </ProgressBar>
         </button>
       )}
-      {st && (
-        <div className="flex min-w-[140px] items-center gap-2 text-xs">
-          {ACTIVE.has(run.status) ? <Spinner size="sm" /> : <Gauge size={16} className="text-muted" />}
-          <div>
-            <div className="font-medium">{st.stage} · {Math.round(st.percent)}%</div>
-            <div className="text-muted">{st.eta_s ? `~${fmtTime(st.eta_s)} left` : st.detail || ""}</div>
-          </div>
-        </div>
-      )}
+      {!p.total && <span className="flex-1" />}
       {b && (
         <Tip content={<div className="text-xs leading-relaxed">
           <div>{b.tokens.toLocaleString()} tokens{b.max_tokens ? ` of ${b.max_tokens.toLocaleString()}` : ""}</div>
@@ -53,13 +50,13 @@ export function RunBar({ run }: { run: RunState }) {
           <div>{b.steps} / {b.max_steps} steps · {fmtTime(b.elapsed_s)} of {fmtTime(b.wall_clock_s)}</div>
           <div>ElevenLabs {b.el_chars.toLocaleString()} / {b.el_budget.toLocaleString()} chars</div>
         </div>}>
-          <div className="flex items-center gap-3 text-xs tabular-nums text-muted" data-testid="budget-meter" tabIndex={0}>
+          <div className="flex shrink-0 items-center gap-2.5 tabular-nums text-muted" data-testid="budget-meter" tabIndex={0}>
             <span className="flex items-center gap-1"><CurrencyDollar size={14} />{b.pricing_known || b.cost_usd ? b.cost_usd.toFixed(2) : "—"}
-              {costPct != null && <span className={cn("ml-1 inline-block h-1.5 w-10 overflow-hidden rounded-full bg-surface-tertiary")}>
+              {costPct != null && <span className="ml-1 hidden h-1.5 w-8 overflow-hidden rounded-full bg-surface-tertiary sm:inline-block">
                 <span className={cn("block h-full", costPct > 85 ? "bg-danger" : "bg-accent")} style={{ width: `${costPct}%` }} /></span>}
             </span>
-            <span>{fmtK(b.tokens)} tok</span>
-            <span className="flex items-center gap-1"><Timer size={14} />{b.steps}/{b.max_steps}</span>
+            <span className="hidden sm:inline">{fmtK(b.tokens)} tok</span>
+            <span className="hidden items-center gap-1 sm:flex"><Timer size={14} />{b.steps}/{b.max_steps}</span>
           </div>
         </Tip>
       )}

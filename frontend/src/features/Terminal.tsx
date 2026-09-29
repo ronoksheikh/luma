@@ -100,7 +100,7 @@ export function TerminalPanel({ visible }: { visible: boolean }) {
           </Switch>
         </div>
         <div ref={host} className="min-h-0 flex-1" onClick={() => takeover && term.current?.focus()} data-testid="terminal" />
-        {takeover && <div className="border-t border-white/[0.06] px-4 py-1.5 text-[11px] text-brand-sky">You're typing into the sandbox. The director's next command still runs here.</div>}
+        {takeover && <div className="border-t border-white/[0.06] px-4 py-1.5 text-xs text-brand-sky">You're typing into the sandbox. The director's next command still runs here.</div>}
       </div>
     </div>
   );

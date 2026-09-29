@@ -16,7 +16,7 @@ export function Logo({ size = 28, withName = false, className }: { size?: number
     <span className={cn("inline-flex items-center gap-2.5", className)}>
       <img src="/brand/logo-mark.svg" width={size} height={size} alt="" aria-hidden className="shrink-0 select-none" draggable={false} />
       {withName && (
-        <span className="display text-[15px] font-medium tracking-tight">
+        <span className="display text-[16px] font-medium tracking-tight">
           Luma <span className="text-muted">Studio</span>
         </span>
       )}
@@ -92,7 +92,7 @@ export function Tip({ content, children }: { content: ReactNode; children: React
 export function SectionLabel({ children, right }: { children: ReactNode; right?: ReactNode }) {
   return (
     <div className="flex items-center justify-between px-1 pb-1.5">
-      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted">{children}</span>
+      <span className="text-xs font-medium uppercase tracking-wide text-muted">{children}</span>
       {right}
     </div>
   );

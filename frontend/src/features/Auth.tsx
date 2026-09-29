@@ -33,7 +33,7 @@ export function AuthScreen() {
         <div className="mb-8 flex flex-col items-center gap-4 text-center">
           <Logo size={44} />
           <div>
-            <h1 className="text-[26px] leading-tight">Luma Studio</h1>
+            <h1 className="text-[24px] leading-tight">Luma Studio</h1>
             <p className="mt-1 text-sm text-muted">Motion graphics and video, directed by AI.</p>
           </div>
         </div>

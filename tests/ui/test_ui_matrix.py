@@ -2,8 +2,10 @@
 
     LUMA_CHROMIUM=... LUMA_MATRIX=docs/ui-refresh/after pytest -m ui tests/ui/test_ui_matrix.py
 
-Skipped unless LUMA_MATRIX is set. Files are named <view>-<theme>-<w>x<h>.png. The theme is chosen with
-`localStorage["luma.theme"]` (ignored by builds that predate the theme switch, so it also captures "before").
+Screenshots are taken only when LUMA_MATRIX is set (files are named <view>-<theme>-<w>x<h>.png); the layout checks
+(no horizontal page scroll, no clipped inspector tabs, More button on screen) always run, at 390 / 768 / 1280 / 1440 px.
+The theme is chosen with `localStorage["luma.theme"]` (ignored by builds that predate the theme switch, so it also
+captures "before").
 """
 import os
 import time
@@ -18,14 +20,12 @@ pytestmark = pytest.mark.ui
 OUT = os.environ.get("LUMA_MATRIX")
 ROOT = Path(__file__).resolve().parents[2]
 USER, PASSWORD = "matrix_ui", "a long password 123"
-SIZES = [(1440, 900), (390, 844)]
-THEMES = ["light", "dark"]
+COMBOS = [(1440, 900, "light"), (1440, 900, "dark"), (390, 844, "light"), (390, 844, "dark"), (1280, 800, "dark"), (768, 1024, "light")]
+SHOT_SIZES = {(1440, 900), (390, 844)}
 
 
 @pytest.fixture(scope="module")
 def setup(server):
-    if not OUT:
-        pytest.skip("LUMA_MATRIX not set")
     from app.toolbox import boot, venv
 
     t0 = time.time()
@@ -64,8 +64,20 @@ def _ctx(browser, w, h, theme):
 
 def _snap(page, name, w, h, theme):
     page.wait_for_timeout(700)
-    Path(OUT).mkdir(parents=True, exist_ok=True)
-    page.screenshot(path=str(Path(OUT) / f"{name}-{theme}-{w}x{h}.png"))
+    over = page.evaluate("() => document.documentElement.scrollWidth - window.innerWidth")
+    assert over <= 1, f"{name} at {w}x{h}: page scrolls horizontally by {over}px"
+    if OUT and (w, h) in SHOT_SIZES:
+        Path(OUT).mkdir(parents=True, exist_ok=True)
+        page.screenshot(path=str(Path(OUT) / f"{name}-{theme}-{w}x{h}.png"))
+
+
+def _tabs_fit(page, w):
+    """Inspector tabs: nothing clipped, and the More button is on screen."""
+    bar = page.get_by_role("tablist", name="Inspector")
+    dims = bar.evaluate("el => ({sw: el.scrollWidth, cw: el.clientWidth, tabs: [...el.children].map(c => Math.round(c.getBoundingClientRect().width))})")
+    assert dims["sw"] <= dims["cw"] + 1, f"inspector tabs overflow at {w}px: {dims}"
+    box = page.get_by_role("button", name="More panels").bounding_box()
+    assert box and box["x"] + box["width"] <= w + 1, f"More button off screen at {w}px"
 
 
 def _open_tab(page, name, mobile):
@@ -84,10 +96,9 @@ def _open_tab(page, name, mobile):
     page.wait_for_timeout(300)
 
 
-@pytest.mark.parametrize("theme", THEMES)
-@pytest.mark.parametrize("w,h", SIZES)
+@pytest.mark.parametrize("w,h,theme", COMBOS)
 def test_matrix(server, browser, setup, w, h, theme):
-    mobile = w < 500
+    mobile = w < 1024  # sidebar becomes a drawer and the panes a Director/Studio switch below `lg`
     # sign-in (logged-out context)
     ctx = _ctx(browser, w, h, theme)
     page = ctx.new_page()
@@ -110,6 +121,7 @@ def test_matrix(server, browser, setup, w, h, theme):
     _snap(page, "run-cards", w, h, theme)
     # inspector tabs
     _open_tab(page, "Plan", mobile)
+    _tabs_fit(page, w)
     _snap(page, "inspector", w, h, theme)
     # toolbox + tool detail
     _open_tab(page, "Toolbox", False)

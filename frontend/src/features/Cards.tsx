@@ -27,16 +27,16 @@ export function CardShell({ art, children, icon, subtitle, right }: { art: Artif
   const Icon = icon || CARD_ICON[art.type] || File;
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-surface" data-testid={`card-${art.type}`}>
-      <div className="flex items-center gap-2.5 border-b border-separator px-4 py-2.5">
+      <div className="flex items-center gap-2.5 px-4 pb-1 pt-3">
         <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-sunken text-accent-ink"><Icon size={16} /></span>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13.5px] font-medium">{art.title}</div>
+          <div className="truncate text-[14px] font-medium">{art.title}</div>
           {subtitle && <div className="truncate text-xs text-muted">{subtitle}</div>}
         </div>
         {art.version > 1 && <Chip size="sm" variant="soft" color="accent">v{art.version}</Chip>}
         {right}
       </div>
-      <div className="p-3.5">{children}</div>
+      <div className="px-3.5 pb-3.5 pt-2">{children}</div>
     </div>
   );
 }
@@ -92,7 +92,7 @@ export function PresentCard({ card, art }: { card: string; art: Artifact }) {
                   <div className="text-sm font-medium">{c.name || c.hex}</div>
                   <div className="font-mono text-xs text-muted">{c.hex}</div>
                   {c.usage && <div className="mt-0.5 text-xs text-muted">{c.usage}</div>}
-                  <div className="mt-1 flex gap-2 text-[10.5px] tabular-nums text-muted"><span>on white {c.contrast_white}:1</span><span>on black {c.contrast_black}:1</span></div>
+                  <div className="mt-1 flex gap-2 text-xs tabular-nums text-muted"><span>on white {c.contrast_white}:1</span><span>on black {c.contrast_black}:1</span></div>
                 </div>
               </div>
             ))}
@@ -153,9 +153,9 @@ function FileCard({ art }: { art: Artifact }) {
         <div className="min-w-0 flex-1">
           {m.description && <p className="mb-2 text-sm">{m.description}</p>}
           {m.auto_traced && <Chip size="sm" color="warning" variant="soft">Auto-traced · IoU {m.iou}</Chip>}
-          {pv.kind === "text" && <pre className="max-h-64 overflow-auto rounded-xl bg-surface-secondary p-3 font-mono text-[11.5px] leading-relaxed">{pv.text}{pv.truncated ? "\n…" : ""}</pre>}
+          {pv.kind === "text" && <pre className="max-h-64 overflow-auto rounded-xl bg-surface-secondary p-3 font-mono text-xs leading-relaxed">{pv.text}{pv.truncated ? "\n…" : ""}</pre>}
           {pv.kind === "zip" && (
-            <ul className="max-h-48 overflow-auto rounded-xl bg-surface-secondary p-2 font-mono text-[11.5px]">
+            <ul className="max-h-48 overflow-auto rounded-xl bg-surface-secondary p-2 font-mono text-xs">
               {pv.entries.map((e: any) => <li key={e.name} className="flex justify-between gap-2 px-1"><span className="truncate">{e.name}</span><span className="text-muted">{fmtBytes(e.size)}</span></li>)}
             </ul>
           )}
@@ -178,7 +178,7 @@ function StoryboardCard({ art }: { art: Artifact }) {
           <figure key={s.n} className="w-52 shrink-0 overflow-hidden rounded-xl border border-border">
             <img src={s.url} alt="" className="aspect-video w-full bg-night object-cover" loading="lazy" />
             <figcaption className="px-2.5 py-2">
-              <div className="flex items-center justify-between text-[11px] tabular-nums text-muted">
+              <div className="flex items-center justify-between text-xs tabular-nums text-muted">
                 <span>Shot {s.n}</span><span>{s.t.toFixed(2)}s{s.end != null ? `–${s.end.toFixed(2)}s` : "+"}</span>
               </div>
               <p className="mt-0.5 text-[13px] leading-snug">{s.note}</p>
@@ -207,14 +207,14 @@ function TimelineCard({ art }: { art: Artifact }) {
       }}>
         {tracks.map((tr) => (
           <div key={tr} className="flex h-9 items-center">
-            <span className="w-14 shrink-0 text-[11px] capitalize text-muted">{tr}</span>
+            <span className="w-14 shrink-0 text-xs capitalize text-muted">{tr}</span>
             <div className="relative h-7 flex-1 rounded-md bg-surface">
               {evs.filter((e) => e.track === tr).map((e, i, arr) => {
                 const crowded = arr.some((o, k) => k !== i && Math.abs(o.t - e.t) / dur < 0.07);
                 return (
                   <button key={i} title={`${e.name} · ${e.t.toFixed(3)}s`} aria-label={`${e.name} at ${e.t.toFixed(2)} s`}
                     onPointerDown={(ev) => { ev.stopPropagation(); seek(e.t); }}
-                    className={cn("absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full text-[10px] text-white ring-2 ring-surface",
+                    className={cn("absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full text-xs text-white ring-2 ring-surface",
                       crowded ? "size-2.5" : "flex h-5 items-center px-1.5", tr === "audio" ? "bg-brand-royal" : "bg-accent")}
                     style={{ left: `${(100 * e.t) / dur}%` }}>
                     {crowded ? null : e.name}
@@ -308,7 +308,7 @@ export function RequestCard({ r, runId }: { r: Req; runId: string }) {
       <div className="flex items-start gap-2.5">
         <Icon size={20} weight="fill" className={cn("mt-0.5 shrink-0", pending ? "text-accent-ink" : "text-muted")} />
         <div className="min-w-0 flex-1">
-          <div className="text-[11px] font-medium uppercase tracking-wide text-muted">
+          <div className="text-xs font-medium uppercase tracking-wide text-muted">
             {r.reqKind === "approval" ? "Approval needed" : r.reqKind === "options" ? "Choose a direction" : "Question"}
             {r.auto && " · approved automatically (Autopilot)"}
             {remaining != null && pending && ` · default in ${remaining}s`}
@@ -358,7 +358,7 @@ export function RequestCard({ r, runId }: { r: Req; runId: string }) {
           <div className="flex flex-wrap justify-end gap-2">
             {r.reqKind === "approval" && (d.choices || []).map((c: string, i: number) => (
               <Button key={c} size="sm" variant={i === 0 ? "primary" : "secondary"} isPending={busy} data-approve={i === 0 ? "1" : undefined}
-                onPress={() => send({ choice: c, note: text || undefined })}>{i === 0 && <CheckCircle size={16} />}{c}{i === 0 && <kbd className="ml-1 hidden rounded bg-white/20 px-1 text-[10px] sm:inline">A</kbd>}</Button>
+                onPress={() => send({ choice: c, note: text || undefined })}>{i === 0 && <CheckCircle size={16} />}{c}{i === 0 && <kbd className="ml-1 hidden rounded bg-white/20 px-1 text-xs sm:inline">A</kbd>}</Button>
             ))}
             {r.reqKind === "ask" && (d.multi_select || (d.allow_free_text !== false && text)) && (
               <Button size="sm" isPending={busy} isDisabled={!sel.length && !text.trim()} onPress={() => send({ selections: sel.length ? sel : undefined, text: text || undefined })}>Send</Button>
@@ -386,7 +386,7 @@ export function SubagentCard({ it, render }: { it: Extract<Item, { kind: "subage
       <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left">
         <span className="flex size-7 items-center justify-center rounded-lg bg-sunken text-accent-ink"><Robot size={16} /></span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[13.5px]">Sub-agent · {it.label}</span>
+          <span className="block text-[13px]">Sub-agent · {it.label}</span>
           <span className="block truncate text-xs text-muted">{it.status === "running" ? it.task : it.result?.summary || it.result?.error || it.status}</span>
         </span>
         {it.status === "running" ? <Spinner size="sm" /> : it.status === "completed" ? <CheckCircle size={18} weight="fill" className="text-success-ink" /> : <XCircle size={18} weight="fill" className="text-danger-ink" />}

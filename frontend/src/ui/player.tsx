@@ -50,7 +50,7 @@ export function VideoPlayer({ src, poster, fps = 60, chapters = [], loop: loop0 
       </div>
       <Scrubber t={t} dur={dur} chapters={chapters} onSeek={seek} />
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-0.5">
+        <div className="flex flex-wrap items-center gap-0.5">
           {!compact && <Tip content="Start"><Button isIconOnly size="sm" variant="ghost" aria-label="Go to start" onPress={() => seek(0)}><SkipBack size={16} /></Button></Tip>}
           <Tip content="Previous frame  ,"><Button isIconOnly size="sm" variant="ghost" aria-label="Previous frame" onPress={() => step(-1)}><CaretLeft size={16} /></Button></Tip>
           <Button isIconOnly size="sm" aria-label={playing ? "Pause" : "Play"} onPress={toggle} className="rounded-full">
@@ -66,7 +66,7 @@ export function VideoPlayer({ src, poster, fps = 60, chapters = [], loop: loop0 
           </ToggleButtonGroup>
         </div>
         <div className="flex items-center gap-2">
-          <span className="whitespace-nowrap font-mono text-[11px] tabular-nums text-muted">{frame}/{total} · {t.toFixed(2)}s</span>
+          <span className="whitespace-nowrap font-mono text-xs tabular-nums text-muted">{frame}/{total} · {t.toFixed(2)}s</span>
           <a href={`${src.split("?")[0]}?download=true`} download={downloadName} aria-label="Download"
             className="inline-flex size-8 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-secondary hover:text-foreground">
             <DownloadSimple size={16} />
@@ -94,7 +94,7 @@ export function Scrubber({ t, dur, chapters = [], onSeek }: { t: number; dur: nu
         <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-surface-tertiary" />
         <div className="absolute left-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-accent" style={{ width: `${pct}%` }} />
         {chapters.map((c) => (
-          <span key={c.t + c.label} className="absolute top-1/2 h-2.5 w-0.5 -translate-y-1/2 rounded bg-brand-deep/60" style={{ left: `${dur ? (100 * c.t) / dur : 0}%` }} />
+          <span key={c.t + c.label} className="absolute top-1/2 h-2.5 w-0.5 -translate-y-1/2 rounded bg-muted/60" style={{ left: `${dur ? (100 * c.t) / dur : 0}%` }} />
         ))}
         <span className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-surface shadow ring-2 ring-accent" style={{ left: `${pct}%` }} />
       </div>
@@ -102,7 +102,7 @@ export function Scrubber({ t, dur, chapters = [], onSeek }: { t: number; dur: nu
         <div className="flex flex-wrap gap-1">
           {chapters.map((c) => (
             <button key={c.t + c.label} onClick={() => onSeek(c.t + 1e-3)}
-              className={cn("rounded-full border px-2 py-0.5 text-[11px] tabular-nums transition-colors",
+              className={cn("rounded-full border px-2 py-0.5 text-xs tabular-nums transition-colors",
                 t >= c.t - 0.02 ? "border-accent/40 bg-sunken text-accent-ink" : "border-border text-muted hover:text-foreground")}>
               {c.label} <span className="opacity-60">{c.t.toFixed(2)}s</span>
             </button>
@@ -140,7 +140,7 @@ export function WaveformPlayer({ src, peaks, duration, words, transcript }: {
               style={{ height: `${Math.max(6, p * 100)}%` }} />
           ))}
         </div>
-        <span className="w-12 text-right font-mono text-[11px] tabular-nums text-muted">{t.toFixed(1)}s</span>
+        <span className="w-12 text-right font-mono text-xs tabular-nums text-muted">{t.toFixed(1)}s</span>
       </div>
       <audio ref={a} src={src} preload="metadata" onTimeUpdate={(e) => setT(e.currentTarget.currentTime)} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} />
       {words && words.length > 0 ? (
@@ -204,7 +204,7 @@ export function ComparisonView({ a, b, mode: mode0 = "slider", labels = ["A", "B
           <div className="relative aspect-video overflow-hidden rounded-xl bg-night">
             <div className={cn("absolute inset-0", show === "a" ? "visible" : "invisible")}>{media(a, va, true)}</div>
             <div className={cn("absolute inset-0", show === "b" ? "visible" : "invisible")}>{media(b, vb, false)}</div>
-            <span className="absolute left-2 top-2 rounded-full bg-black/50 px-2 py-0.5 text-[11px] text-white">{show === "a" ? labels[0] : labels[1]}</span>
+            <span className="absolute left-2 top-2 rounded-full bg-black/50 px-2 py-0.5 text-xs text-white">{show === "a" ? labels[0] : labels[1]}</span>
           </div>
           <Button size="sm" variant="secondary" onPress={() => setShow(show === "a" ? "b" : "a")}>Show {show === "a" ? labels[1] : labels[0]}</Button>
         </div>
@@ -213,8 +213,8 @@ export function ComparisonView({ a, b, mode: mode0 = "slider", labels = ["A", "B
           <div className="absolute inset-0">{media(b, vb, false)}</div>
           <div className="absolute inset-0" style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }}>{media(a, va, true)}</div>
           <div className="pointer-events-none absolute inset-y-0 w-0.5 bg-white/90 shadow" style={{ left: `${split}%` }} />
-          <span className="absolute left-2 top-2 rounded-full bg-black/50 px-2 py-0.5 text-[11px] text-white">{labels[0]}</span>
-          <span className="absolute right-2 top-2 rounded-full bg-black/50 px-2 py-0.5 text-[11px] text-white">{labels[1]}</span>
+          <span className="absolute left-2 top-2 rounded-full bg-black/50 px-2 py-0.5 text-xs text-white">{labels[0]}</span>
+          <span className="absolute right-2 top-2 rounded-full bg-black/50 px-2 py-0.5 text-xs text-white">{labels[1]}</span>
           <input type="range" min={0} max={100} step={0.5} value={split} onChange={(e) => setSplit(Number(e.target.value))} aria-label="Compare position"
             data-testid="compare-slider" className="absolute inset-0 h-full w-full cursor-ew-resize opacity-0" />
         </div>

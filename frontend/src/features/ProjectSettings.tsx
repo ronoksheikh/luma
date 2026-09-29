@@ -142,7 +142,7 @@ export function ProjectSettingsModal() {
 
                 <section className="flex flex-col gap-4 rounded-2xl border border-border bg-surface p-4" aria-label="Collaboration">
                   <div>
-                    <h3 className="text-[15px] text-foreground">Collaboration</h3>
+                    <h3 className="text-[16px] text-foreground">Collaboration</h3>
                     <p className="text-xs text-muted">When the director must stop for your sign-off.</p>
                   </div>
                   <Toggle isSelected={!!st.autopilot} onChange={(v) => up({ autopilot: v })} label="Autopilot"

@@ -1,9 +1,9 @@
 // The self-extending Toolbox: tools (global / project), skills, plugins and templates.
 // Tool detail: manifest, README, source, tests (+ run), "Try it" form from the JSON Schema, usage, history with
 // diff + revert, enable / promote / delete. Also the timeline cards for toolbox events and the templates gallery.
-import { AlertDialog, Button, Chip, Disclosure, Input, Label, ListBox, Modal, Select, Spinner, Switch, Tabs, TextArea, TextField } from "@heroui/react";
+import { AlertDialog, Button, Chip, Disclosure, Input, Label, ListBox, Modal, Popover, Select, Spinner, Switch, Tabs, TextArea, TextField } from "@heroui/react";
 import {
-  ArrowCounterClockwise, ArrowFatLinesUp, BookOpen, CheckCircle, Code, FilmStrip, Flask, GitDiff, Globe, FolderSimple, MagnifyingGlass, Play,
+  ArrowCounterClockwise, ArrowFatLinesUp, BookOpen, CaretDown, CheckCircle, Code, FilmStrip, Flask, Funnel, GitDiff, Globe, FolderSimple, MagnifyingGlass, Play,
   Plus, PuzzlePiece, Sparkle, Toolbox as ToolboxIcon, Trash, Warning, XCircle,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -11,6 +11,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api, type Project } from "../lib/api";
 import { useStore } from "../lib/store";
+import { SkeletonRows } from "../ui/ai";
 import { cn } from "../ui/kit";
 import { highlightCode } from "../ui/highlight";
 
@@ -82,7 +83,7 @@ export function FileDiffs({ diffs, open = false }: { diffs: FileDiff[]; open?: b
               <Button slot="trigger" variant="ghost" size="sm" fullWidth className="justify-start gap-2 font-mono text-[12px]">
                 <GitDiff size={14} className="text-muted" />{d.file}
                 <span className="text-success-ink">+{add}</span>{del > 0 && <span className="text-danger-ink">−{del}</span>}
-                <span className="ms-auto text-[11px] text-muted">{d.status}</span><Disclosure.Indicator />
+                <span className="ms-auto text-xs text-muted">{d.status}</span><Disclosure.Indicator />
               </Button>
             </Disclosure.Heading>
             <Disclosure.Content><Disclosure.Body><DiffText diff={d.diff} /></Disclosure.Body></Disclosure.Content>
@@ -155,7 +156,7 @@ export function ToolboxEventCard({ ev, data }: { ev: string; data: any }) {
       {ev === "template_saved" && data.thumbnail && <img src={data.thumbnail} alt="" className="mt-2 max-h-40 rounded-xl border border-border" />}
       {ev === "template_saved" && data.params && <p className="mt-1 text-xs text-muted">params: {data.params.join(", ")}</p>}
       {ev === "tool_disabled" && data.traces?.length > 0 && (
-        <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-xl bg-surface-secondary p-2 font-mono text-[11px]">{data.traces.join("\n\n")}</pre>
+        <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-xl bg-surface-secondary p-2 font-mono text-xs">{data.traces.join("\n\n")}</pre>
       )}
       {data.scan?.blocking?.length > 0 && (
         <ul className="mt-2 flex flex-col gap-0.5 text-xs text-danger-ink">
@@ -164,7 +165,7 @@ export function ToolboxEventCard({ ev, data }: { ev: string; data: any }) {
       )}
       {data.diff?.length > 0 && <div className="mt-2"><FileDiffs diffs={data.diff} /></div>}
       {data.test?.output && data.test.status !== "passed" && (
-        <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-xl bg-surface-secondary p-2 font-mono text-[11px]">{data.test.output.slice(-3000)}</pre>
+        <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-xl bg-surface-secondary p-2 font-mono text-xs">{data.test.output.slice(-3000)}</pre>
       )}
     </div>
   );
@@ -193,7 +194,7 @@ export function ToolboxPanel({ version }: { version: number }) {
   const { toolboxView, openToolbox } = useStore();
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="toolbox-panel">
-      <div className="flex shrink-0 gap-1 border-b border-separator px-3 py-2">
+      <div className="flex shrink-0 gap-1 overflow-x-auto px-3 pb-1 pt-2">
         {[["tools", "Tools", ToolboxIcon], ["skills", "Skills", BookOpen], ["plugins", "Plugins", PuzzlePiece], ["templates", "Templates", FilmStrip]].map(([id, label, Icon]: any) => (
           <Button key={id} size="sm" variant={toolboxView === id ? "secondary" : "ghost"} onPress={() => openToolbox(id)} aria-pressed={toolboxView === id}>
             <Icon size={15} />{label}
@@ -210,10 +211,13 @@ export function ToolboxPanel({ version }: { version: number }) {
 
 function FilterSelect({ label, value, options, onChange }: { label: string; value: string; options: [string, string][]; onChange: (v: string) => void }) {
   return (
-    <Select selectedKey={value} onSelectionChange={(k) => onChange(String(k))} className="w-[128px]" aria-label={label}>
-      <Select.Trigger className="h-8 text-xs"><Select.Value /><Select.Indicator /></Select.Trigger>
-      <Select.Popover><ListBox>{options.map(([id, l]) => <ListBox.Item key={id} id={id} textValue={l}>{l}<ListBox.ItemIndicator /></ListBox.Item>)}</ListBox></Select.Popover>
-    </Select>
+    <div className="flex flex-col gap-1">
+      <span className="text-xs font-medium text-muted">{label}</span>
+      <Select selectedKey={value} onSelectionChange={(k) => onChange(String(k))} className="w-full" aria-label={label}>
+        <Select.Trigger className="h-8 text-sm"><Select.Value /><Select.Indicator /></Select.Trigger>
+        <Select.Popover><ListBox>{options.map(([id, l]) => <ListBox.Item key={id} id={id} textValue={l}>{l}<ListBox.ItemIndicator /></ListBox.Item>)}</ListBox></Select.Popover>
+      </Select>
+    </div>
   );
 }
 
@@ -239,48 +243,64 @@ function ToolsList({ version }: { version: number }) {
   }, [projectId, scope, status, author, tag, q]);
   useEffect(() => { const t = setTimeout(load, q ? 250 : 0); return () => clearTimeout(t); }, [load, version, q]);
   const tags = useMemo(() => Array.from(new Set((rows || []).flatMap((r) => r.tags || []))).sort().slice(0, 18), [rows]);
+  const active = [scope, status, author].filter((v) => v !== "all").length + (tag ? 1 : 0);
   return (
-    <div className="flex flex-col gap-3 p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[160px] flex-1">
+    <div className="flex flex-col gap-2 p-3">
+      <div className="flex items-center gap-2">
+        <div className="relative min-w-0 flex-1">
           <MagnifyingGlass size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
           <Input aria-label="Search tools" placeholder="Search tools…" value={q} onChange={(e) => setQ(e.target.value)} className="h-8 w-full pl-8 text-sm" />
         </div>
-        <FilterSelect label="Scope" value={scope} onChange={setScope} options={[["all", "All scopes"], ["global", "Global"], ["project", "This project"]]} />
-        <FilterSelect label="Status" value={status} onChange={setStatus}
-          options={[["all", "Any status"], ["enabled", "Enabled"], ["disabled", "Disabled"], ["failing", "Failing"], ["modified", "Modified"], ["deprecated", "Deprecated"]]} />
-        <FilterSelect label="Author" value={author} onChange={setAuthor} options={[["all", "Any author"], ["agent", "Agent"], ["user", "User"]]} />
-        <Button size="sm" variant="secondary" onPress={() => setCreating(true)}><Plus size={14} />New tool</Button>
+        <Popover>
+          <Button size="sm" variant="secondary" aria-label="Filters" className="shrink-0">
+            <Funnel size={14} /><span className="hidden sm:inline">Filters</span>
+            {active > 0 && <span className="flex size-4 items-center justify-center rounded-full bg-accent text-xs font-medium text-accent-foreground">{active}</span>}
+          </Button>
+          <Popover.Content placement="bottom end" className="w-[288px]">
+            <Popover.Dialog className="flex flex-col gap-3 p-3" aria-label="Tool filters">
+              <FilterSelect label="Scope" value={scope} onChange={setScope} options={[["all", "All scopes"], ["global", "Global"], ["project", "This project"]]} />
+              <FilterSelect label="Status" value={status} onChange={setStatus}
+                options={[["all", "Any status"], ["enabled", "Enabled"], ["disabled", "Disabled"], ["failing", "Failing"], ["modified", "Modified"], ["deprecated", "Deprecated"]]} />
+              <FilterSelect label="Author" value={author} onChange={setAuthor} options={[["all", "Any author"], ["agent", "Agent"], ["user", "User"]]} />
+              {tags.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-xs font-medium text-muted">Tags</span>
+                  <div className="flex flex-wrap gap-1">
+                    {tags.map((t) => (
+                      <button key={t} onClick={() => setTag(tag === t ? null : t)} aria-pressed={tag === t}
+                        className={cn("rounded-full px-2 py-0.5 text-xs transition-colors", tag === t ? "bg-accent text-accent-foreground" : "bg-surface-secondary text-muted hover:text-foreground")}>
+                        #{t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {active > 0 && <Button size="sm" variant="ghost" onPress={() => { setScope("all"); setStatus("all"); setAuthor("all"); setTag(null); }}>Clear filters</Button>}
+            </Popover.Dialog>
+          </Popover.Content>
+        </Popover>
+        <Button size="sm" variant="secondary" className="shrink-0" onPress={() => setCreating(true)} aria-label="New tool"><Plus size={14} /><span className="hidden sm:inline">New tool</span></Button>
       </div>
-      {tags.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {tags.map((t) => (
-            <button key={t} onClick={() => setTag(tag === t ? null : t)}
-              className={cn("rounded-full border px-2 py-0.5 text-[11px]", tag === t ? "border-accent bg-accent/10 text-accent-ink" : "border-border text-muted hover:text-foreground")}>
-              #{t}
-            </button>
-          ))}
-        </div>
-      )}
-      {rows === null ? <Spinner size="sm" /> : rows.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted">No tools match. The director builds tools as it works — or author one with “New tool”.</p>
+      {rows === null ? <SkeletonRows rows={5} className="px-1" /> : rows.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted">No tools match. The director builds tools as it works — or author one with “New tool”.</p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col">
           {rows.map((r) => (
             <li key={r.id}>
               <button onClick={() => setOpen(r)} data-testid="tool-row" data-name={r.name}
-                className="flex w-full flex-col gap-1 rounded-2xl border border-border bg-surface px-3.5 py-3 text-left transition-colors hover:border-accent/50">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-[13px] font-medium">{r.name}</span>
-                  <span className="text-xs text-muted">v{r.version}</span>
-                  <ScopeChip scope={r.scope} />
-                  <StatusChip status={r.status} />
+                className="flex w-full flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left outline-none transition-colors hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-focus">
+                <div className="flex items-center gap-2">
+                  <span className="min-w-0 truncate font-mono text-[13px] font-medium">{r.name}</span>
+                  <span className="shrink-0 text-xs text-muted">v{r.version}</span>
+                  {r.status !== "enabled" && <StatusChip status={r.status} />}
                   {r.overrides_global && <Chip size="sm" variant="soft" color="warning">overrides global</Chip>}
-                  {r.shadowed && <Chip size="sm" variant="soft">shadowed here</Chip>}
-                  <span className="ms-auto text-[11px] text-muted">{r.author === "agent" ? <><Sparkle size={11} className="inline" /> agent</> : "user"}</span>
+                  {r.shadowed && <Chip size="sm" variant="soft">shadowed</Chip>}
+                  <span className="ms-auto flex shrink-0 items-center gap-1 text-xs text-muted" title={`${r.scope} tool by ${r.author}`}>
+                    {r.scope === "global" ? <Globe size={12} /> : <FolderSimple size={12} />}{r.author === "agent" ? <Sparkle size={12} /> : null}
+                  </span>
                 </div>
-                <p className="line-clamp-2 text-[13px] text-muted">{r.description}</p>
-                <div className="text-[11px] tabular-nums text-muted">{statsLine(r.stats)}{r.stats?.last_error && r.status === "failing" ? ` · last error: ${String(r.stats.last_error).slice(0, 80)}` : ""}</div>
+                <p className="line-clamp-1 text-[13px] text-muted">{r.description}</p>
+                <div className="text-xs tabular-nums text-muted/80">{statsLine(r.stats)}{r.stats?.last_error && r.status === "failing" ? ` · last error: ${String(r.stats.last_error).slice(0, 80)}` : ""}</div>
               </button>
             </li>
           ))}
@@ -380,17 +400,17 @@ function ToolDetail({ row, onClose, onChanged }: { row: ToolRow | null; onClose:
                     </Button>
                   </div>
                   <Code_ code={d.files["test_tool.py"] || ""} language="python" maxH="340px" />
-                  {d.test_output && <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-xl bg-night p-3 font-mono text-[11px] text-white/85" data-testid="test-output">{d.test_output}</pre>}
+                  {d.test_output && <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-xl bg-night p-3 font-mono text-xs text-white/85" data-testid="test-output">{d.test_output}</pre>}
                 </Tabs.Panel>
                 <Tabs.Panel id="try" className="pt-3"><TryIt row={row} detail={d} onRan={load} projectId={projectId} /></Tabs.Panel>
                 <Tabs.Panel id="usage" className="flex flex-col gap-3 pt-3">
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {[["Calls", d.stats?.calls ?? 0], ["Success", d.stats?.success_rate != null ? `${Math.round(d.stats.success_rate * 100)}%` : "—"],
                       ["Avg duration", d.stats?.avg_s != null ? `${d.stats.avg_s}s` : "—"], ["Fail streak", d.stats?.fail_streak ?? 0]].map(([k, v]) => (
-                      <div key={k as string} className="rounded-xl border border-border px-3 py-2"><div className="text-[11px] text-muted">{k}</div><div className="text-lg tabular-nums">{v}</div></div>
+                      <div key={k as string} className="rounded-xl border border-border px-3 py-2"><div className="text-xs text-muted">{k}</div><div className="text-lg tabular-nums">{v}</div></div>
                     ))}
                   </div>
-                  {d.stats?.last_error && <pre className="max-h-32 overflow-auto whitespace-pre-wrap rounded-xl bg-danger/5 p-2 font-mono text-[11px] text-danger-ink">{d.stats.last_error}</pre>}
+                  {d.stats?.last_error && <pre className="max-h-32 overflow-auto whitespace-pre-wrap rounded-xl bg-danger/5 p-2 font-mono text-xs text-danger-ink">{d.stats.last_error}</pre>}
                   <table className="w-full text-left text-xs">
                     <thead className="text-muted"><tr><th className="py-1">When</th><th>Run</th><th>Source</th><th>Status</th><th>Duration</th></tr></thead>
                     <tbody>
@@ -492,7 +512,7 @@ function History({ row, versions, base, qs, onReverted }: { row: ToolRow; versio
             <span className="font-mono text-xs text-muted">{v.sha.slice(0, 7)}</span>
             <span className="min-w-0 flex-1 truncate">{v.message}</span>
             {(v.versions || []).map((t: string) => <Chip key={t} size="sm" variant="soft">v{t}</Chip>)}
-            <span className="text-[11px] text-muted">{v.author} · {new Date(v.ts * 1000).toLocaleString()}</span>
+            <span className="text-xs text-muted">{v.author} · {new Date(v.ts * 1000).toLocaleString()}</span>
             {(v.versions || []).length > 0 && v.versions[0] !== row.version && (
               <Button size="sm" variant="ghost" isPending={busy} onPress={() => revert(v.versions[0])}><ArrowCounterClockwise size={14} />Revert</Button>
             )}
@@ -600,10 +620,10 @@ function TryIt({ row, detail, onRan, projectId }: { row: ToolRow; detail: any; o
             <Chip size="sm" variant="soft" color={res.ok ? "success" : "danger"}>{res.ok ? "success" : res.kind || "error"}</Chip>
             {res.duration != null && <span className="text-xs tabular-nums text-muted">{res.duration}s</span>}
           </div>
-          {res.error && <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-xl bg-danger/5 p-2 font-mono text-[11px] text-danger-ink">{res.error}{res.traceback ? `\n\n${res.traceback}` : ""}</pre>}
+          {res.error && <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-xl bg-danger/5 p-2 font-mono text-xs text-danger-ink">{res.error}{res.traceback ? `\n\n${res.traceback}` : ""}</pre>}
           {res.ok && <Code_ code={JSON.stringify(res.result, null, 2)} language="json" maxH="320px" />}
           {res.images?.length > 0 && <div className="grid grid-cols-2 gap-2">{res.images.map((u: string) => <img key={u} src={u} alt="" className="rounded-xl border border-border" />)}</div>}
-          {res.logs?.length > 0 && <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-xl bg-night p-2 font-mono text-[11px] text-white/80">{res.logs.join("\n")}</pre>}
+          {res.logs?.length > 0 && <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-xl bg-night p-2 font-mono text-xs text-white/80">{res.logs.join("\n")}</pre>}
         </div>
       )}
     </div>
@@ -694,7 +714,7 @@ function NewToolModal({ open, onClose, onCreated }: { open: boolean; onClose: ()
               <div className="flex flex-col gap-2">
                 <div className="flex gap-2"><TestChip t={res.test} />{res.scan && !res.scan.ok && <Chip size="sm" variant="soft" color="danger">static checks failed</Chip>}</div>
                 {res.scan?.blocking?.length > 0 && <ul className="text-xs text-danger-ink">{res.scan.blocking.map((f: any, i: number) => <li key={i} className="font-mono">{f.file}:{f.line} [{f.rule}] {f.message}</li>)}</ul>}
-                {res.test.status !== "passed" && <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-xl bg-surface-secondary p-2 font-mono text-[11px]">{res.test.output}</pre>}
+                {res.test.status !== "passed" && <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-xl bg-surface-secondary p-2 font-mono text-xs">{res.test.output}</pre>}
               </div>
             )}
           </Modal.Body>
@@ -729,9 +749,9 @@ function SkillsList({ version }: { version: number }) {
             <li key={s.name}>
               <button onClick={() => setOpen(s.name)} data-testid="skill-row" className="flex w-full flex-col gap-1 rounded-2xl border border-border bg-surface px-3.5 py-3 text-left hover:border-accent/50">
                 <div className="flex items-center gap-2"><BookOpen size={15} className="text-accent-ink" /><span className="font-mono text-[13px] font-medium">{s.name}</span>
-                  <span className="ms-auto text-[11px] text-muted">{s.author}{s.reads ? ` · read ${s.reads}×` : ""}</span></div>
+                  <span className="ms-auto text-xs text-muted">{s.author}{s.reads ? ` · read ${s.reads}×` : ""}</span></div>
                 <p className="text-[13px] text-muted">{s.description}</p>
-                {(s.tags?.length > 0 || s.tools_used?.length > 0) && <div className="text-[11px] text-muted">{s.tags.map((t: string) => `#${t}`).join(" ")}{s.tools_used?.length ? ` · tools: ${s.tools_used.join(", ")}` : ""}</div>}
+                {(s.tags?.length > 0 || s.tools_used?.length > 0) && <div className="text-xs text-muted">{s.tags.map((t: string) => `#${t}`).join(" ")}{s.tools_used?.length ? ` · tools: ${s.tools_used.join(", ")}` : ""}</div>}
               </button>
             </li>
           ))}
@@ -849,7 +869,7 @@ function PluginsList({ version }: { version: number }) {
                 {f.endsWith(".md") ? <div className="md rounded-xl border border-border p-3"><ReactMarkdown remarkPlugins={[remarkGfm]}>{code}</ReactMarkdown></div>
                   : <Code_ code={code} language={f.endsWith(".yaml") ? "yaml" : "python"} maxH="300px" />}</div>
             ))}
-            {open?.test_output && <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-xl bg-night p-2 font-mono text-[11px] text-white/80">{open.test_output}</pre>}
+            {open?.test_output && <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-xl bg-night p-2 font-mono text-xs text-white/80">{open.test_output}</pre>}
           </Modal.Body>
         </Modal.Dialog></Modal.Container>
       </Modal.Backdrop>
@@ -896,7 +916,7 @@ export function TemplatesGallery() {
                   <div className="flex items-center gap-2"><span className="text-sm font-medium">{t.title}</span><span className="text-xs text-muted">v{t.version}</span>
                     {!t.enabled && <Chip size="sm" variant="soft" color="danger">disabled</Chip>}</div>
                   <p className="line-clamp-2 text-xs text-muted">{t.description}</p>
-                  {t.params && <p className="text-[11px] text-muted">params: {Object.keys(t.params.properties || {}).join(", ")}</p>}
+                  {t.params && <p className="text-xs text-muted">params: {Object.keys(t.params.properties || {}).join(", ")}</p>}
                   <Button size="sm" className="mt-auto self-start" isDisabled={!t.enabled} isPending={busy === t.name} onPress={() => use(t)}>Use template</Button>
                 </div>
               </div>
@@ -930,10 +950,12 @@ export function TemplatesModal() {
   );
 }
 
-/** Left-nav section: counts + shortcuts into the Toolbox. */
+/** Left-nav section: counts + shortcuts into the Toolbox. Collapsible (remembered); counts stay quiet. */
 export function ToolboxNav() {
   const { openToolbox, setTemplatesOpen, projectId } = useStore();
   const [sum, setSum] = useState<any>(null);
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem("luma.toolboxNav") !== "closed"; } catch { return true; } });
+  const toggle = () => { const v = !open; setOpen(v); try { localStorage.setItem("luma.toolboxNav", v ? "open" : "closed"); } catch { /* ignore */ } };
   useEffect(() => {
     const load = () => api(`/api/toolbox/summary${projectId ? `?project_id=${projectId}` : ""}`).then(setSum).catch(() => {});
     load();
@@ -941,17 +963,24 @@ export function ToolboxNav() {
     return () => clearInterval(iv);
   }, [projectId]);
   const item = (label: string, n: number | undefined, Icon: any, onPress: () => void, testid: string) => (
-    <button onClick={onPress} data-testid={testid} className="flex w-full items-center gap-2 rounded-xl px-3 py-1.5 text-left text-sm text-foreground/85 hover:bg-surface-tertiary/70">
-      <Icon size={16} className="text-muted" /><span className="flex-1">{label}</span>{n != null && <span className="text-xs tabular-nums text-muted">{n}</span>}
+    <button onClick={onPress} data-testid={testid} className="flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] text-foreground/85 outline-none transition-colors hover:bg-surface-tertiary/70 focus-visible:ring-2 focus-visible:ring-focus">
+      <Icon size={16} className="text-muted" /><span className="flex-1">{label}</span>{n ? <span className="text-xs tabular-nums text-muted/80">{n}</span> : null}
     </button>
   );
   return (
     <div className="px-3 pb-2" data-testid="toolbox-nav">
-      <div className="px-1 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wide text-muted">Toolbox</div>
-      {item("Tools", sum?.tools, ToolboxIcon, () => openToolbox("tools"), "nav-tools")}
-      {item("Skills", sum?.skills, BookOpen, () => openToolbox("skills"), "nav-skills")}
-      {item("Plugins", sum?.plugins, PuzzlePiece, () => openToolbox("plugins"), "nav-plugins")}
-      {item("Templates", sum?.templates, FilmStrip, () => setTemplatesOpen(true), "nav-templates")}
+      <button onClick={toggle} aria-expanded={open}
+        className="flex h-8 w-full items-center gap-1 rounded-lg px-1 text-xs font-medium uppercase tracking-wide text-muted outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus">
+        Toolbox <CaretDown size={11} className={cn("transition-transform duration-150", !open && "-rotate-90")} />
+      </button>
+      {open && (
+        <div className="animate-rise">
+          {item("Tools", sum?.tools, ToolboxIcon, () => openToolbox("tools"), "nav-tools")}
+          {item("Skills", sum?.skills, BookOpen, () => openToolbox("skills"), "nav-skills")}
+          {item("Plugins", sum?.plugins, PuzzlePiece, () => openToolbox("plugins"), "nav-plugins")}
+          {item("Templates", sum?.templates, FilmStrip, () => setTemplatesOpen(true), "nav-templates")}
+        </div>
+      )}
     </div>
   );
 }

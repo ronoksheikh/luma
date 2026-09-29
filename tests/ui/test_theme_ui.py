@@ -23,6 +23,15 @@ def login(page, base):
     page.get_by_label("Username").wait_for(state="detached", timeout=20000)
 
 
+def wait_dark(page, want):
+    """Poll (page.wait_for_function evals a string, which the server's CSP forbids)."""
+    for _ in range(50):
+        if page.evaluate("() => document.documentElement.classList.contains('dark')") == want:
+            return
+        page.wait_for_timeout(100)
+    raise AssertionError(f"dark class never became {want}")
+
+
 def html(page):
     return page.evaluate("""() => { const r = document.documentElement;
       return {dark: r.classList.contains('dark'), light: r.classList.contains('light'), theme: r.dataset.theme,
@@ -62,9 +71,9 @@ def test_dark_toggle_persists_and_follows_system(server, browser, account):
     dlg.get_by_role("radio", name="System").click()
     assert html(page)["stored"] is None and not html(page)["dark"]
     page.emulate_media(color_scheme="dark")
-    page.wait_for_function("document.documentElement.classList.contains('dark')")
+    wait_dark(page, True)
     page.emulate_media(color_scheme="light")
-    page.wait_for_function("!document.documentElement.classList.contains('dark')")
+    wait_dark(page, False)
     assert not errors, errors
     ctx.close()
 

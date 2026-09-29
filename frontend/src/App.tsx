@@ -14,10 +14,12 @@ import { api, setUnauthorizedHandler, type Project } from "./lib/api";
 import { ACTIVE, useRunEvents } from "./lib/run";
 import { playerKeys } from "./ui/player";
 import { useStore } from "./lib/store";
-import { Logo, cn } from "./ui/kit";
+import { ShellSkeleton } from "./ui/ai";
+import { cn } from "./ui/kit";
 
 export default function App() {
   const { user, authChecked, checkAuth } = useStore();
+  const narrow = useNarrow();
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -33,18 +35,25 @@ export default function App() {
   return (
     <>
       {body}
-      <Toast.Provider placement="bottom" />
+      <Toast.Provider placement={narrow ? "top" : "bottom end"} />
     </>
   );
 }
 
 function Splash() {
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-5">
-      <Logo size={40} />
-      <Spinner size="sm" />
-    </div>
-  );
+  return <ShellSkeleton />;
+}
+
+/** True below the `lg` breakpoint, where the bottom bar appears: toasts move to the top so they never cover it or the composer. */
+function useNarrow() {
+  const [narrow, setNarrow] = useState(() => window.matchMedia("(max-width: 1023px)").matches);
+  useEffect(() => {
+    const m = window.matchMedia("(max-width: 1023px)");
+    const h = () => setNarrow(m.matches);
+    m.addEventListener("change", h);
+    return () => m.removeEventListener("change", h);
+  }, []);
+  return narrow;
 }
 
 function Studio() {
@@ -142,7 +151,7 @@ function NoProject() {
     <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
       <span className="flex size-14 items-center justify-center rounded-2xl bg-sunken text-accent-ink"><FolderSimplePlus size={28} /></span>
       <div>
-        <h2 className="text-[22px]">Start a project</h2>
+        <h2 className="text-[20px]">Start a project</h2>
         <p className="mx-auto mt-1 max-w-sm text-sm text-muted">A project holds your brand assets, output settings and the director's workspace.</p>
       </div>
       <div className="flex gap-2">

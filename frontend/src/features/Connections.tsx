@@ -147,7 +147,7 @@ export function LlmConnection({ onValid }: { onValid?: () => void }) {
             <ListBox renderEmptyState={() => <div className="px-3 py-2 text-xs text-muted">{models.length ? "No match — the typed ID is used as-is." : "Load models to browse, or type an ID."}</div>}>
               {(m: ModelInfo) => (
                 <ListBox.Item id={m.id} textValue={m.id}>
-                  <span className="min-w-0 flex-1 truncate font-mono text-[12.5px]">{m.id}</span>
+                  <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{m.id}</span>
                   {m.tools && <Chip size="sm" color="success" variant="soft">tools</Chip>}
                   {m.vision && <Chip size="sm" color="accent" variant="soft">vision</Chip>}
                   <ListBox.ItemIndicator />

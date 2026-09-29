@@ -51,22 +51,22 @@ export function Sidebar() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-        <SectionLabel>Projects</SectionLabel>
+        <SectionLabel right={projects.length > 0 ? <span className="text-xs tabular-nums text-muted/80">{projects.length}</span> : undefined}>Projects</SectionLabel>
         <ul className="flex flex-col gap-0.5">
           {projects.map((p) => {
             const active = p.id === projectId;
             const running = p.latest_run && ["running", "waiting_input"].includes(p.latest_run.status);
             return (
               <li key={p.id} className={cn("group relative flex items-center rounded-xl transition-colors",
-                active ? "bg-surface shadow-[0_1px_2px_rgba(16,24,40,0.06),0_0_0_1px_var(--border)]" : "hover:bg-surface-tertiary/70")}>
+                active ? "bg-surface shadow-soft" : "hover:bg-surface-tertiary/70")}>
                 <button className="min-w-0 flex-1 px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus rounded-xl"
                   onClick={() => { selectProject(p.id); setNavOpen(false); }}>
                   <div className="flex items-center gap-2">
                     <span className={cn("truncate text-sm", active ? "font-medium text-foreground" : "text-foreground/85")}>{p.name}</span>
                     {running && <span className="size-1.5 shrink-0 animate-breathe rounded-full bg-accent" aria-label="running" />}
                   </div>
-                  <div className="truncate text-xs text-muted tabular-nums">
-                    {p.kind === "demo" ? "Demo · " : ""}{p.settings.width}×{p.settings.height} · {p.settings.fps} fps · {p.settings.duration}s
+                  <div className={cn("truncate text-xs tabular-nums text-muted", !active && "opacity-80")}>
+                    {p.kind === "demo" ? "Demo · " : ""}{p.settings.width}×{p.settings.height} · {p.settings.duration}s
                   </div>
                 </button>
                 <Dropdown>

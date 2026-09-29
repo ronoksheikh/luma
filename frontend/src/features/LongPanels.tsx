@@ -16,7 +16,7 @@ function Empty({ icon, title, children }: { icon: React.ReactNode; title: string
   return (
     <div className="flex min-h-[300px] flex-col items-center justify-center gap-3 px-8 text-center">
       <span className="flex size-12 items-center justify-center rounded-2xl bg-sunken text-accent-ink">{icon}</span>
-      <div className="text-[15px] font-medium">{title}</div>
+      <div className="text-[16px] font-medium">{title}</div>
       {children && <p className="max-w-[320px] text-sm text-muted">{children}</p>}
     </div>
   );
@@ -123,12 +123,12 @@ function TodoRow({ n, depth, onOpen }: { n: Node; depth: number; onOpen: (t: Tod
         style={{ paddingLeft: 10 + depth * 18 }}>
         <span className="mt-px"><StatusIcon status={n.status} /></span>
         <span className="min-w-0 flex-1">
-          <span className={cn("block text-[13.5px]", phase && "font-medium", (n.status === "done" || n.status === "skipped") && "text-muted", n.status === "skipped" && "line-through")}>{n.title}</span>
+          <span className={cn("block text-[13px]", phase && "font-medium", (n.status === "done" || n.status === "skipped") && "text-muted", n.status === "skipped" && "line-through")}>{n.title}</span>
           {n.acceptance_criteria && n.status !== "done" && !phase && <span className="block truncate text-xs text-muted">{n.acceptance_criteria}</span>}
         </span>
         {n.priority === "high" && n.status !== "done" && <Chip size="sm" variant="soft" color="warning">high</Chip>}
         {n.evidence?.length > 0 && <Chip size="sm" variant="soft">{n.evidence.length} evidence</Chip>}
-        <span className="shrink-0 text-[11px] tabular-nums text-muted">{dur(n.started_at, n.completed_at)}</span>
+        <span className="shrink-0 text-xs tabular-nums text-muted">{dur(n.started_at, n.completed_at)}</span>
       </button>
       {n.children.length > 0 && <ul className="flex flex-col gap-0.5">{n.children.map((c) => <TodoRow key={c.id} n={c} depth={depth + 1} onOpen={onOpen} />)}</ul>}
     </li>
@@ -140,7 +140,7 @@ function evidenceLink(e: any, projectId: string | null) {
     return <a href={`/api/files/${projectId}/${e}`} target="_blank" rel="noreferrer" className="font-mono text-link">{e}</a>;
   }
   if (typeof e === "string") return <span className="font-mono">{e}</span>;
-  return <pre className="max-h-32 overflow-auto rounded-lg bg-surface-secondary p-2 font-mono text-[11px]">{JSON.stringify(e, null, 1)}</pre>;
+  return <pre className="max-h-32 overflow-auto rounded-lg bg-surface-secondary p-2 font-mono text-xs">{JSON.stringify(e, null, 1)}</pre>;
 }
 
 function TodoModal({ todo, todos, onClose }: { todo: Todo | null; todos: Todo[]; onClose: () => void }) {
@@ -296,7 +296,7 @@ export function MemoryPanel({ version }: { version: number }) {
           {items.map((m) => (
             <li key={m.id} className="group flex items-start gap-3 px-3.5 py-2.5">
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2"><span className="font-mono text-[12.5px] font-medium">{m.key}</span>{m.source === "user" && <Chip size="sm" variant="soft" color="accent">you</Chip>}</div>
+                <div className="flex items-center gap-2"><span className="font-mono text-[13px] font-medium">{m.key}</span>{m.source === "user" && <Chip size="sm" variant="soft" color="accent">you</Chip>}</div>
                 <p className="whitespace-pre-wrap break-words text-sm text-foreground/85">{m.value}</p>
               </div>
               <div className="flex opacity-60 group-hover:opacity-100">
@@ -438,7 +438,7 @@ export function ArtifactsPanel({ version }: { version: number }) {
               </button>
               <div className="px-3 pt-2">
                 <div className="truncate text-[13px] font-medium">{a.title}</div>
-                <div className="text-[11px] text-muted">{a.type} · v{a.version}{vs.length > 1 ? ` of ${vs.length}` : ""} · {ago(a.created_at)}</div>
+                <div className="text-xs text-muted">{a.type} · v{a.version}{vs.length > 1 ? ` of ${vs.length}` : ""} · {ago(a.created_at)}</div>
               </div>
               <div className="flex items-center gap-0.5 px-1.5 pb-1.5">
                 {vs.length > 1 && (

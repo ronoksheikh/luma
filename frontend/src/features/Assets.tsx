@@ -100,7 +100,7 @@ export function AssetsPanel() {
                 </div>
                 <div className="flex items-center justify-between gap-2 border-t border-separator px-2.5 py-1.5">
                   <span className="truncate text-xs">{a.filename}</span>
-                  <span className="shrink-0 text-[10px] uppercase text-muted">{a.kind}</span>
+                  <span className="shrink-0 text-xs uppercase text-muted">{a.kind}</span>
                 </div>
               </button>
               <Button isIconOnly size="sm" variant="secondary" aria-label={`Remove ${a.filename}`} onPress={() => remove(a)}
@@ -172,7 +172,7 @@ function AnalysisModal({ asset, onClose }: { asset: Asset | null; onClose: () =>
                     <ArrowSquareOut size={16} /> Open original
                   </a>
                 </div>
-                <pre className="max-h-[60vh] overflow-auto rounded-xl bg-surface-secondary p-3 font-mono text-[11.5px] leading-relaxed text-foreground/80">{JSON.stringify(a, null, 2)}</pre>
+                <pre className="max-h-[60vh] overflow-auto rounded-xl bg-surface-secondary p-3 font-mono text-xs leading-relaxed text-foreground/80">{JSON.stringify(a, null, 2)}</pre>
               </div>
             )}
           </Modal.Body>
