@@ -28,7 +28,7 @@ export function CardShell({ art, children, icon, subtitle, right }: { art: Artif
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-surface" data-testid={`card-${art.type}`}>
       <div className="flex items-center gap-2.5 border-b border-separator px-4 py-2.5">
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-offwhite text-accent"><Icon size={16} /></span>
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-sunken text-accent-ink"><Icon size={16} /></span>
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13.5px] font-medium">{art.title}</div>
           {subtitle && <div className="truncate text-xs text-muted">{subtitle}</div>}
@@ -263,7 +263,7 @@ export function DataTable({ columns, rows }: { columns: string[]; rows: any[][] 
         <tbody className="divide-y divide-separator">
           {rows.map((r, i) => (
             <tr key={i}>{r.map((c, k) => (
-              <td key={k} className={cn("px-3 py-1.5 align-top", c === "PASS" && "text-success", c === "FAIL" && "font-medium text-danger", c === "CHECK" && "text-warning")}>
+              <td key={k} className={cn("px-3 py-1.5 align-top", c === "PASS" && "text-success-ink", c === "FAIL" && "font-medium text-danger-ink", c === "CHECK" && "text-warning-ink")}>
                 {typeof c === "boolean" ? (c ? "yes" : "no") : String(c ?? "")}
               </td>
             ))}</tr>
@@ -304,9 +304,9 @@ export function RequestCard({ r, runId }: { r: Req; runId: string }) {
   const title = r.reqKind === "ask" ? d.question : d.title;
   const Icon = r.reqKind === "approval" ? SealCheck : Question;
   return (
-    <div className={cn("rounded-2xl border p-4", pending ? "border-accent/40 bg-offwhite" : "border-border bg-surface")} data-testid={`request-${r.reqKind}`}>
+    <div className={cn("rounded-2xl border p-4", pending ? "border-accent/40 bg-sunken" : "border-border bg-surface")} data-testid={`request-${r.reqKind}`}>
       <div className="flex items-start gap-2.5">
-        <Icon size={20} weight="fill" className={cn("mt-0.5 shrink-0", pending ? "text-accent" : "text-muted")} />
+        <Icon size={20} weight="fill" className={cn("mt-0.5 shrink-0", pending ? "text-accent-ink" : "text-muted")} />
         <div className="min-w-0 flex-1">
           <div className="text-[11px] font-medium uppercase tracking-wide text-muted">
             {r.reqKind === "approval" ? "Approval needed" : r.reqKind === "options" ? "Choose a direction" : "Question"}
@@ -369,7 +369,7 @@ export function RequestCard({ r, runId }: { r: Req; runId: string }) {
       )}
       {!pending && (
         <div className="mt-2 flex items-center gap-1.5 text-xs text-muted">
-          {r.status === "cancelled" ? <XCircle size={14} /> : <CheckCircle size={14} className="text-success" />}
+          {r.status === "cancelled" ? <XCircle size={14} /> : <CheckCircle size={14} className="text-success-ink" />}
           {r.status === "timeout" ? "No answer — used the default: " : r.status === "cancelled" ? "Cancelled" : "Answered: "}
           <span className="text-foreground">{answer.choice || (answer.selections || []).join(", ") || answer.text || ""}{answer.note ? ` — ${answer.note}` : ""}</span>
         </div>
@@ -384,12 +384,12 @@ export function SubagentCard({ it, render }: { it: Extract<Item, { kind: "subage
   return (
     <div className="rounded-2xl border border-border bg-surface" data-testid="subagent">
       <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left">
-        <span className="flex size-7 items-center justify-center rounded-lg bg-offwhite text-accent"><Robot size={16} /></span>
+        <span className="flex size-7 items-center justify-center rounded-lg bg-sunken text-accent-ink"><Robot size={16} /></span>
         <span className="min-w-0 flex-1">
           <span className="block text-[13.5px]">Sub-agent · {it.label}</span>
           <span className="block truncate text-xs text-muted">{it.status === "running" ? it.task : it.result?.summary || it.result?.error || it.status}</span>
         </span>
-        {it.status === "running" ? <Spinner size="sm" /> : it.status === "completed" ? <CheckCircle size={18} weight="fill" className="text-success" /> : <XCircle size={18} weight="fill" className="text-danger" />}
+        {it.status === "running" ? <Spinner size="sm" /> : it.status === "completed" ? <CheckCircle size={18} weight="fill" className="text-success-ink" /> : <XCircle size={18} weight="fill" className="text-danger-ink" />}
         {it.result?.cost_usd != null && <span className="text-xs tabular-nums text-muted">${Number(it.result.cost_usd).toFixed(3)}</span>}
       </button>
       {open && <ChildTimeline runId={it.child} render={render} />}
@@ -411,7 +411,7 @@ export function FavoriteButton({ art, onChange }: { art: Artifact; onChange?: (a
   return (
     <Button isIconOnly size="sm" variant="ghost" aria-label={art.favorite ? "Unfavourite" : "Favourite"}
       onPress={async () => onChange?.(await api<Artifact>(`/api/artifacts/${art.id}`, { method: "PATCH", json: { favorite: !art.favorite } }))}>
-      <Star size={16} weight={art.favorite ? "fill" : "regular"} className={art.favorite ? "text-warning" : "text-muted"} />
+      <Star size={16} weight={art.favorite ? "fill" : "regular"} className={art.favorite ? "text-warning-ink" : "text-muted"} />
     </Button>
   );
 }

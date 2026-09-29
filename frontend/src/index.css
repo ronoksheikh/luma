@@ -3,15 +3,24 @@
 @import "@fontsource-variable/inter/opsz.css";
 @import "@fontsource-variable/geist-mono";
 @import "@xterm/xterm/css/xterm.css";
-@import "highlight.js/styles/github.css";
 
 /*
  * Lumademy brand system (see Brand Guidelines) mapped onto HeroUI's theme variables.
  *   Lumademy Blue #2970EC · Sky Blue #5DAEFF · Royal Blue #1557D1 · Deep Blue #07358F
- *   Night #071738 (dark surfaces only) · White #FFFFFF · Off White #EFF5FF
- * Navy (#10234B) is intentionally not used; text is a neutral near-black.
+ *   Night #071738 (dark surfaces) · White #FFFFFF · Off White #EFF5FF
+ * The brand colours themselves never change between themes; only the neutrals and the readable "ink" shades do.
+ * Navy (#10234B) is intentionally not used; light-mode text is a neutral near-black.
+ *
+ * Theming: HeroUI v3 switches on `.dark` / `[data-theme="dark"]` on <html> (see src/lib/theme.ts and the inline script in
+ * index.html). `python3 frontend/scripts/contrast.py` checks WCAG AA for every text/surface pair below.
+ *
+ * Semantic tokens (use these, not raw colours):
+ *   surfaces   bg-background · bg-surface · bg-surface-secondary · bg-surface-tertiary · bg-sunken (wells, chips, icon tiles)
+ *   text       text-foreground · text-muted · text-accent-ink · text-success-ink · text-danger-ink · text-warning-ink
+ *   dark media bg-night (terminal, player, thumbnails: dark in both themes)
  */
 @layer base {
+  /* light-tokens */
   :root,
   .light,
   [data-theme="light"] {
@@ -29,6 +38,10 @@
 
     --accent: #2970ec;
     --accent-foreground: #ffffff;
+    --accent-ink: #1557d1;
+    --success-ink: #0b7a45;
+    --danger-ink: #c22b2b;
+    --warning-ink: #8a5300;
     --focus: #2970ec;
 
     --background: #f5f8fe;
@@ -37,18 +50,71 @@
     --surface-foreground: #111318;
     --surface-secondary: #f3f6fc;
     --surface-tertiary: #eaf0fb;
+    --sunken: #eff5ff;
     --overlay: #ffffff;
-    --muted: #6b7280;
+    --muted: #586277;
     --default: #eff5ff;
     --default-foreground: #111318;
     --field-background: #ffffff;
     --field-foreground: #111318;
-    --field-border: #e3e8f2;
+    --field-border: #dde4f0;
     --field-border-width: 1px;
     --border: #e6ebf4;
     --separator: #edf1f8;
     --link: #1557d1;
-    --backdrop: rgba(17, 19, 24, 0.28);
+    --backdrop: rgba(17, 19, 24, 0.32);
+
+    --shadow-soft: 0 1px 2px rgb(16 24 40 / 0.05), 0 6px 20px -10px rgb(16 24 40 / 0.10);
+    --shadow-pop: 0 2px 8px rgb(16 24 40 / 0.06), 0 14px 32px -12px rgb(16 24 40 / 0.16);
+    --checker-a: #ffffff;
+    --checker-b: #eef2f9;
+
+    /* code highlighting (GitHub light) */
+    --hl-fg: #1f2328; --hl-comment: #57606a; --hl-keyword: #cf222e; --hl-string: #0a3069; --hl-number: #0550ae;
+    --hl-title: #6639ba; --hl-attr: #0550ae; --hl-builtin: #953800; --hl-add: #116329; --hl-del: #82071e;
+  }
+
+  /* dark-tokens */
+  :root.dark,
+  .dark,
+  [data-theme="dark"] {
+    --accent: #2970ec;
+    --accent-foreground: #ffffff;
+    --accent-ink: #7db8ff;
+    --success-ink: #5fd49a;
+    --danger-ink: #ff8a93;
+    --warning-ink: #f2c86b;
+    --focus: #5daeff;
+
+    --background: #0b1220;
+    --foreground: #e8eefb;
+    --surface: #111a2c;
+    --surface-foreground: #e8eefb;
+    --surface-secondary: #16213a;
+    --surface-tertiary: #1d2a47;
+    --sunken: #18243f;
+    --overlay: #16213a;
+    --muted: #9eacc8;
+    --default: #1d2a47;
+    --default-foreground: #e8eefb;
+    --segment: #26365a;
+    --segment-foreground: #e8eefb;
+    --field-background: #0e1626;
+    --field-foreground: #e8eefb;
+    --field-border: #2b3a5c;
+    --border: #24314f;
+    --separator: #1b2640;
+    --link: #7db8ff;
+    --backdrop: rgba(3, 7, 16, 0.66);
+
+    --shadow-soft: 0 0 0 1px rgb(255 255 255 / 0.03), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+    --shadow-pop: 0 0 0 1px rgb(255 255 255 / 0.05), 0 18px 40px -14px rgb(0 0 0 / 0.75);
+    --checker-a: #0f1830;
+    --checker-b: #16213a;
+
+    /* code highlighting (GitHub dark) */
+    --hl-fg: #e6edf3; --hl-comment: #9aa7bd; --hl-keyword: #ff7b72; --hl-string: #a5d6ff; --hl-number: #79c0ff;
+    --hl-title: #d2a8ff; --hl-attr: #79c0ff; --hl-builtin: #ffa657; --hl-add: #7ee787; --hl-del: #ffa198;
   }
 }
 
@@ -61,11 +127,35 @@
   --color-brand-deep: var(--brand-deep);
   --color-night: var(--brand-night);
   --color-offwhite: var(--brand-offwhite);
+  --color-sunken: var(--sunken);
+  --color-accent-ink: var(--accent-ink);
+  --color-success-ink: var(--success-ink);
+  --color-danger-ink: var(--danger-ink);
+  --color-warning-ink: var(--warning-ink);
+  --shadow-soft: var(--shadow-soft);
+  --shadow-pop: var(--shadow-pop);
   --animate-breathe: breathe 1.8s ease-in-out infinite;
+  --animate-shimmer: shimmer 2.2s linear infinite;
+  --animate-orb-spin: orb-spin 2.8s linear infinite;
+  --animate-orb-pulse: orb-pulse 2.4s ease-in-out infinite;
+  --animate-rise: rise 180ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
 
   @keyframes breathe {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.35; }
+  }
+  @keyframes shimmer {
+    from { background-position: 120% 0; }
+    to { background-position: -120% 0; }
+  }
+  @keyframes orb-spin { to { transform: rotate(360deg); } }
+  @keyframes orb-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: none; }
   }
 }
 
@@ -77,7 +167,7 @@
     font-feature-settings: "cv05", "cv08", "ss03";
   }
   h1, h2, h3, .display { letter-spacing: -0.02em; font-weight: 550; }
-  ::selection { background: color-mix(in oklab, var(--brand-blue) 22%, transparent); }
+  ::selection { background: color-mix(in oklab, var(--brand-blue) 28%, transparent); }
 }
 
 @layer components {
@@ -93,7 +183,7 @@
   .md p:first-child { @apply mt-0; }
   .md ul { @apply my-2 list-disc pl-5 space-y-1; }
   .md ol { @apply my-2 list-decimal pl-5 space-y-1; }
-  .md code { @apply font-mono text-[12.5px] px-1 py-px rounded-md bg-surface-tertiary; }
+  .md code { @apply font-mono text-[13px] px-1 py-px rounded-md bg-surface-tertiary; }
   .md pre { @apply my-3 p-3 rounded-xl bg-surface-secondary overflow-x-auto text-[12px]; }
   .md pre code { @apply p-0 bg-transparent; }
   .md h1, .md h2, .md h3 { @apply font-semibold mt-4 mb-1.5; }
@@ -101,14 +191,78 @@
   .md table { @apply my-2 text-xs; }
   .md th, .md td { @apply border border-border px-2 py-1; }
   .checker {
-    background-color: #fff;
-    background-image: linear-gradient(45deg, #eef2f9 25%, transparent 25%), linear-gradient(-45deg, #eef2f9 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, #eef2f9 75%), linear-gradient(-45deg, transparent 75%, #eef2f9 75%);
+    background-color: var(--checker-a);
+    background-image: linear-gradient(45deg, var(--checker-b) 25%, transparent 25%), linear-gradient(-45deg, var(--checker-b) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, var(--checker-b) 75%), linear-gradient(-45deg, transparent 75%, var(--checker-b) 75%);
     background-size: 14px 14px;
     background-position: 0 0, 0 7px, 7px -7px, -7px 0;
   }
+
+  /* --- AI status components (dependency-free) ------------------------------------------------------------------ */
+  /* Text with a light sweeping across it: "Thinking…", a running step. */
+  .shimmer-text {
+    color: transparent;
+    background-image: linear-gradient(100deg, var(--muted) 35%, var(--foreground) 50%, var(--muted) 65%);
+    background-size: 240% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    animation: var(--animate-shimmer);
+  }
+  /* The agent orb: brand-gradient sphere; spins a highlight and breathes while data-active="true". */
+  .orb {
+    --s: 20px;
+    position: relative;
+    display: inline-block;
+    flex: none;
+    width: var(--s);
+    height: var(--s);
+    border-radius: 9999px;
+    background:
+      radial-gradient(circle at 30% 26%, var(--brand-sky) 0%, transparent 58%),
+      radial-gradient(circle at 72% 78%, var(--brand-deep) 0%, transparent 62%),
+      var(--brand-blue);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--brand-sky) 45%, transparent),
+      0 0 calc(var(--s) * 0.7) color-mix(in oklab, var(--brand-blue) 28%, transparent);
+  }
+  .orb::before {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    background: conic-gradient(from 0deg, transparent 0 60%, var(--brand-sky) 100%);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+    opacity: 0;
+    transition: opacity 180ms;
+  }
+  .orb[data-active="true"] { animation: var(--animate-orb-pulse); }
+  .orb[data-active="true"]::before { opacity: 1; animation: var(--animate-orb-spin); }
 }
 
 .xterm { padding: 10px 12px; height: 100%; }
-.hljs { background: transparent !important; padding: 0 !important; }
 .xterm .xterm-viewport { background-color: transparent !important; }
+
+/* --- highlight.js: one token-based palette for both themes (see --hl-* above) ------------------------------------ */
+.hljs { background: transparent !important; padding: 0 !important; color: var(--hl-fg); }
+.hljs-comment, .hljs-quote { color: var(--hl-comment); font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-doctag, .hljs-template-tag, .hljs-type, .hljs-variable.language_ { color: var(--hl-keyword); }
+.hljs-string, .hljs-regexp, .hljs-meta .hljs-string { color: var(--hl-string); }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet, .hljs-meta { color: var(--hl-number); }
+.hljs-title, .hljs-title.class_, .hljs-title.function_, .hljs-section { color: var(--hl-title); }
+.hljs-attr, .hljs-attribute, .hljs-selector-class, .hljs-selector-id, .hljs-name { color: var(--hl-attr); }
+.hljs-built_in, .hljs-variable, .hljs-template-variable, .hljs-params { color: var(--hl-builtin); }
+.hljs-addition { color: var(--hl-add); }
+.hljs-deletion { color: var(--hl-del); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 600; }
+
+/* --- motion: subtle by default, none when the user asks for less ---------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .shimmer-text { animation: none; background-image: none; color: var(--muted); }
+}

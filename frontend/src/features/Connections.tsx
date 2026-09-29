@@ -20,9 +20,9 @@ const LABEL: Record<string, string> = {
 };
 
 export function StatusIcon({ status }: { status: string }) {
-  if (status === "ok") return <CheckCircle size={18} weight="fill" className="text-success" />;
-  if (status === "fail") return <XCircle size={18} weight="fill" className="text-danger" />;
-  if (status === "warn") return <Warning size={18} weight="fill" className="text-warning" />;
+  if (status === "ok") return <CheckCircle size={18} weight="fill" className="text-success-ink" />;
+  if (status === "fail") return <XCircle size={18} weight="fill" className="text-danger-ink" />;
+  if (status === "warn") return <Warning size={18} weight="fill" className="text-warning-ink" />;
   if (status === "running") return <Spinner size="sm" />;
   if (status === "skip") return <MinusCircle size={18} className="text-muted" />;
   return <CircleDashed size={18} className="text-muted" />;
@@ -163,7 +163,7 @@ export function LlmConnection({ onValid }: { onValid?: () => void }) {
       </div>
       <Toggle isSelected={saveToAccount} onChange={setSaveToAccount} label="Save to my account"
         description="Encrypted on this server, so it works in any browser you sign in from. Off: kept in this browser only." />
-      {error && <p role="alert" className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>}
+      {error && <p role="alert" className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger-ink">{error}</p>}
       {checks && <Checks checks={checks} />}
       <div className="flex justify-end">
         <Button onPress={test} isPending={testing} isDisabled={!draft.llmBaseUrl || !draft.llmModel}>
@@ -218,7 +218,7 @@ export function ElevenLabsConnection() {
       <SecretField label="API key" value={key} onChange={setKey} placeholder={saved ? `Saved to your account (${server?.elevenlabs.key_masked})` : "sk_…"}
         description="Optional. Enables voice-over with word timings, voice design, sound effects and music. Never enters the agent's terminal." />
       <Toggle isSelected={saveToAccount} onChange={setSaveToAccount} label="Save to my account" description="Encrypted on this server." />
-      {error && <p role="alert" className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>}
+      {error && <p role="alert" className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger-ink">{error}</p>}
       {acct && (
         <div className="rounded-xl border border-border bg-surface p-3.5">
           <Meter value={acct.character_limit ? (100 * acct.character_count) / acct.character_limit : 0} aria-label="Characters used">

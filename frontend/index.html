@@ -1,12 +1,14 @@
 <!doctype html>
-<html lang="en" class="light" data-theme="light">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light" />
+    <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#f5f8fe" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Luma Studio</title>
+    <!-- Blocking, same-origin (the server's CSP forbids inline scripts): applies the saved theme before first paint. -->
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>

@@ -7,7 +7,7 @@ export function AudioRow({ a }: { a: Media }) {
     <div className="rounded-xl border border-border bg-surface px-3 py-2.5">
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="flex min-w-0 items-center gap-2 text-sm">
-          <Waveform size={16} className="shrink-0 text-accent" />
+          <Waveform size={16} className="shrink-0 text-accent-ink" />
           <span className="truncate">{a.label ?? a.path}</span>
         </span>
         <span className="flex shrink-0 gap-1">

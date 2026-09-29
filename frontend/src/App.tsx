@@ -26,7 +26,7 @@ export default function App() {
   }, [checkAuth]);
 
   let body;
-  if (error) body = <div className="flex h-full items-center justify-center p-6 text-sm text-danger">Can't reach the Luma Studio server: {error}</div>;
+  if (error) body = <div className="flex h-full items-center justify-center p-6 text-sm text-danger-ink">Can't reach the Luma Studio server: {error}</div>;
   else if (!authChecked) body = <Splash />;
   else if (!user) body = <AuthScreen />;
   else body = <Studio key={user.id} />;
@@ -96,7 +96,7 @@ function Studio() {
       </Drawer.Backdrop>
 
       <main className="flex min-w-0 flex-1 flex-col p-0 sm:p-2 lg:pl-0">
-        <div className="flex min-h-0 flex-1 overflow-hidden bg-surface sm:rounded-2xl sm:border sm:border-border sm:shadow-[0_1px_3px_rgba(16,24,40,0.04)]">
+        <div className="flex min-h-0 flex-1 overflow-hidden bg-surface sm:rounded-2xl sm:border sm:border-border sm:shadow-soft">
           {projectId ? (
             <>
               <div className={cn("min-h-0 min-w-0 flex-1", mainView === "chat" ? "flex" : "hidden lg:flex", "flex-col")}><Chat run={run} /></div>
@@ -140,7 +140,7 @@ function NoProject() {
   const [busy, setBusy] = useState(false);
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
-      <span className="flex size-14 items-center justify-center rounded-2xl bg-offwhite text-accent"><FolderSimplePlus size={28} /></span>
+      <span className="flex size-14 items-center justify-center rounded-2xl bg-sunken text-accent-ink"><FolderSimplePlus size={28} /></span>
       <div>
         <h2 className="text-[22px]">Start a project</h2>
         <p className="mx-auto mt-1 max-w-sm text-sm text-muted">A project holds your brand assets, output settings and the director's workspace.</p>

@@ -1,9 +1,10 @@
 // Small compositions of HeroUI primitives used across the app.
-import { Description, FieldError, Input, InputGroup, Label, Switch, TextField, Tooltip, Button } from "@heroui/react";
-import { Eye, EyeSlash } from "@phosphor-icons/react";
+import { Description, FieldError, Input, InputGroup, Label, Switch, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Button } from "@heroui/react";
+import { Desktop, Eye, EyeSlash, Moon, Sun } from "@phosphor-icons/react";
 import { clsx, type ClassValue } from "clsx";
-import { useState, type ReactElement, type ReactNode } from "react";
+import { useState, type Key, type ReactElement, type ReactNode } from "react";
 import { twMerge } from "tailwind-merge";
+import { useTheme, type ThemeMode } from "../lib/theme";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -100,3 +101,27 @@ export function SectionLabel({ children, right }: { children: ReactNode; right?:
 export function fmtK(n: number) {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
 }
+
+const THEMES: { id: ThemeMode; label: string; icon: typeof Sun }[] = [
+  { id: "system", label: "System", icon: Desktop },
+  { id: "light", label: "Light", icon: Sun },
+  { id: "dark", label: "Dark", icon: Moon },
+];
+
+/** System / Light / Dark segmented control (Settings → Appearance). */
+export function ThemeSwitch({ className }: { className?: string }) {
+  const [mode, setMode] = useTheme();
+  return (
+    <ToggleButtonGroup selectionMode="single" disallowEmptySelection selectedKeys={new Set([mode])} aria-label="Theme" className={className}
+      onSelectionChange={(k) => setMode([...(k as Set<Key>)][0] as ThemeMode)}>
+      {THEMES.map(({ id, label, icon: Icon }, i) => (
+        <ToggleButton key={id} id={id} aria-label={label}>
+          {i > 0 && <ToggleButtonGroup.Separator />}
+          <Icon size={16} />{label}
+        </ToggleButton>
+      ))}
+    </ToggleButtonGroup>
+  );
+}
+
+export { THEMES };

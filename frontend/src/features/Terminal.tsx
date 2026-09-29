@@ -86,7 +86,7 @@ export function TerminalPanel({ visible }: { visible: boolean }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col p-3">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-night ring-1 ring-black/5">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-night ring-1 ring-border">
         <div className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-4 py-2.5">
           <span className="flex items-center gap-2 text-xs text-white/60">
             <span className={cn("size-1.5 rounded-full", connected ? (status.busy ? "animate-breathe bg-brand-sky" : "bg-[#5fd49a]") : "bg-[#ff7a85]")} />

@@ -60,8 +60,8 @@ export function DiffText({ diff, maxH = "380px" }: { diff: string; maxH?: string
     <pre className="overflow-auto rounded-xl bg-surface-secondary py-2 font-mono text-[12px] leading-[1.5]" style={{ maxHeight: maxH }} data-testid="diff">
       {lines.map((l, i) => (
         <div key={i} className={cn("whitespace-pre px-3",
-          l.startsWith("+++") || l.startsWith("---") ? "text-muted" : l.startsWith("+") ? "bg-success/10 text-success" :
-            l.startsWith("-") ? "bg-danger/10 text-danger" : l.startsWith("@@") ? "text-accent" : l.startsWith("diff ") ? "font-medium text-foreground" : "")}>
+          l.startsWith("+++") || l.startsWith("---") ? "text-muted" : l.startsWith("+") ? "bg-success/10 text-success-ink" :
+            l.startsWith("-") ? "bg-danger/10 text-danger-ink" : l.startsWith("@@") ? "text-accent-ink" : l.startsWith("diff ") ? "font-medium text-foreground" : "")}>
           {l || " "}
         </div>
       ))}
@@ -81,7 +81,7 @@ export function FileDiffs({ diffs, open = false }: { diffs: FileDiff[]; open?: b
             <Disclosure.Heading>
               <Button slot="trigger" variant="ghost" size="sm" fullWidth className="justify-start gap-2 font-mono text-[12px]">
                 <GitDiff size={14} className="text-muted" />{d.file}
-                <span className="text-success">+{add}</span>{del > 0 && <span className="text-danger">−{del}</span>}
+                <span className="text-success-ink">+{add}</span>{del > 0 && <span className="text-danger-ink">−{del}</span>}
                 <span className="ms-auto text-[11px] text-muted">{d.status}</span><Disclosure.Indicator />
               </Button>
             </Disclosure.Heading>
@@ -129,7 +129,7 @@ export function ToolboxEventCard({ ev, data }: { ev: string; data: any }) {
   const Icon = ev.startsWith("skill") ? BookOpen : ev.startsWith("plugin") ? PuzzlePiece : ev.startsWith("template") ? FilmStrip : ToolboxIcon;
   if (ev === "tool_registered") {
     return (
-      <div className="flex items-center gap-2.5 rounded-2xl border border-accent/30 bg-offwhite px-4 py-3" data-testid="toolbox-registered">
+      <div className="flex items-center gap-2.5 rounded-2xl border border-accent/30 bg-sunken px-4 py-3" data-testid="toolbox-registered">
         <span className="text-lg" aria-hidden>🧰</span>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium">New tool available: <span className="font-mono">{data.name}</span> <span className="text-muted">v{data.version}</span></div>
@@ -143,7 +143,7 @@ export function ToolboxEventCard({ ev, data }: { ev: string; data: any }) {
   return (
     <div className={cn("rounded-2xl border p-4", warn ? "border-warning/40 bg-warning/5" : "border-border bg-surface")} data-testid={`toolbox-${ev}`}>
       <div className="flex flex-wrap items-center gap-2">
-        <Icon size={18} weight="fill" className={warn ? "text-warning" : "text-accent"} />
+        <Icon size={18} weight="fill" className={warn ? "text-warning-ink" : "text-accent-ink"} />
         <span className="text-sm font-medium">{title}</span>
         {data.scope && <ScopeChip scope={data.scope} />}
         <TestChip t={data.test} />
@@ -158,7 +158,7 @@ export function ToolboxEventCard({ ev, data }: { ev: string; data: any }) {
         <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-xl bg-surface-secondary p-2 font-mono text-[11px]">{data.traces.join("\n\n")}</pre>
       )}
       {data.scan?.blocking?.length > 0 && (
-        <ul className="mt-2 flex flex-col gap-0.5 text-xs text-danger">
+        <ul className="mt-2 flex flex-col gap-0.5 text-xs text-danger-ink">
           {data.scan.blocking.map((f: any, i: number) => <li key={i} className="font-mono">{f.file}:{f.line} [{f.rule}] {f.message}</li>)}
         </ul>
       )}
@@ -256,7 +256,7 @@ function ToolsList({ version }: { version: number }) {
         <div className="flex flex-wrap gap-1">
           {tags.map((t) => (
             <button key={t} onClick={() => setTag(tag === t ? null : t)}
-              className={cn("rounded-full border px-2 py-0.5 text-[11px]", tag === t ? "border-accent bg-accent/10 text-accent" : "border-border text-muted hover:text-foreground")}>
+              className={cn("rounded-full border px-2 py-0.5 text-[11px]", tag === t ? "border-accent bg-accent/10 text-accent-ink" : "border-border text-muted hover:text-foreground")}>
               #{t}
             </button>
           ))}
@@ -343,7 +343,7 @@ function ToolDetail({ row, onClose, onChanged }: { row: ToolRow | null; onClose:
                   <ArrowFatLinesUp size={14} />Promote to global
                 </Button>
               )}
-              <Button size="sm" variant="ghost" className="text-danger" onPress={() => setConfirmDel(true)}><Trash size={14} />Delete</Button>
+              <Button size="sm" variant="ghost" className="text-danger-ink" onPress={() => setConfirmDel(true)}><Trash size={14} />Delete</Button>
             </div>
           </Modal.Header>
           <Modal.Body>
@@ -366,7 +366,7 @@ function ToolDetail({ row, onClose, onChanged }: { row: ToolRow | null; onClose:
                   </div>
                   {d.files.fixtures?.length > 0 && <p className="text-xs text-muted">fixtures: {d.files.fixtures.map((f: any) => `${f.name} (${f.size} B)`).join(", ")}</p>}
                   {d.scan && !d.scan.ok && (
-                    <ul className="flex flex-col gap-0.5 rounded-xl bg-danger/5 p-3 text-xs text-danger">
+                    <ul className="flex flex-col gap-0.5 rounded-xl bg-danger/5 p-3 text-xs text-danger-ink">
                       {d.scan.blocking.map((f: any, i: number) => <li key={i} className="font-mono">{f.file}:{f.line} [{f.rule}] {f.message}</li>)}
                     </ul>
                   )}
@@ -390,7 +390,7 @@ function ToolDetail({ row, onClose, onChanged }: { row: ToolRow | null; onClose:
                       <div key={k as string} className="rounded-xl border border-border px-3 py-2"><div className="text-[11px] text-muted">{k}</div><div className="text-lg tabular-nums">{v}</div></div>
                     ))}
                   </div>
-                  {d.stats?.last_error && <pre className="max-h-32 overflow-auto whitespace-pre-wrap rounded-xl bg-danger/5 p-2 font-mono text-[11px] text-danger">{d.stats.last_error}</pre>}
+                  {d.stats?.last_error && <pre className="max-h-32 overflow-auto whitespace-pre-wrap rounded-xl bg-danger/5 p-2 font-mono text-[11px] text-danger-ink">{d.stats.last_error}</pre>}
                   <table className="w-full text-left text-xs">
                     <thead className="text-muted"><tr><th className="py-1">When</th><th>Run</th><th>Source</th><th>Status</th><th>Duration</th></tr></thead>
                     <tbody>
@@ -399,7 +399,7 @@ function ToolDetail({ row, onClose, onChanged }: { row: ToolRow | null; onClose:
                           <td className="py-1 tabular-nums">{new Date(c.created_at * 1000).toLocaleString()}</td>
                           <td>{c.run_id ? <RunLink runId={c.run_id} projectId={c.project_id} /> : "—"}</td>
                           <td>{c.source}</td>
-                          <td className={c.status === "success" ? "text-success" : "text-danger"} title={c.error || ""}>{c.status}</td>
+                          <td className={c.status === "success" ? "text-success-ink" : "text-danger-ink"} title={c.error || ""}>{c.status}</td>
                           <td className="tabular-nums">{c.duration_s.toFixed(2)}s</td>
                         </tr>
                       ))}
@@ -440,11 +440,11 @@ function PromotionPane({ row, p, busy, onCancel, onPromote }: { row: ToolRow; p:
     <div className="flex flex-col gap-3" data-testid="promotion-pane">
       <div className="text-sm">Promote <span className="font-mono">{row.name}</span> to the global toolbox{p.replaces_global ? ` (replaces global v${p.replaces_global})` : ""}. Review the code, tests and README.</div>
       {blocked ? (
-        <div className="rounded-xl bg-danger/5 p-3 text-sm text-danger">
+        <div className="rounded-xl bg-danger/5 p-3 text-sm text-danger-ink">
           <div className="mb-1 font-medium">Blocked by the promotion scan — parameterize these first:</div>
           <ul className="flex flex-col gap-0.5 font-mono text-xs">{p.findings.map((f: any, i: number) => <li key={i}>{f.file}:{f.line} [{f.rule}] {f.message}</li>)}</ul>
         </div>
-      ) : <div className="rounded-xl bg-success/10 px-3 py-2 text-sm text-success">The scan found no project-specific values or secrets.</div>}
+      ) : <div className="rounded-xl bg-success/10 px-3 py-2 text-sm text-success-ink">The scan found no project-specific values or secrets.</div>}
       <PromotionDetails d={p} />
       <div className="flex justify-end gap-2">
         <Button variant="tertiary" onPress={onCancel}>Back</Button>
@@ -600,7 +600,7 @@ function TryIt({ row, detail, onRan, projectId }: { row: ToolRow; detail: any; o
             <Chip size="sm" variant="soft" color={res.ok ? "success" : "danger"}>{res.ok ? "success" : res.kind || "error"}</Chip>
             {res.duration != null && <span className="text-xs tabular-nums text-muted">{res.duration}s</span>}
           </div>
-          {res.error && <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-xl bg-danger/5 p-2 font-mono text-[11px] text-danger">{res.error}{res.traceback ? `\n\n${res.traceback}` : ""}</pre>}
+          {res.error && <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-xl bg-danger/5 p-2 font-mono text-[11px] text-danger-ink">{res.error}{res.traceback ? `\n\n${res.traceback}` : ""}</pre>}
           {res.ok && <Code_ code={JSON.stringify(res.result, null, 2)} language="json" maxH="320px" />}
           {res.images?.length > 0 && <div className="grid grid-cols-2 gap-2">{res.images.map((u: string) => <img key={u} src={u} alt="" className="rounded-xl border border-border" />)}</div>}
           {res.logs?.length > 0 && <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-xl bg-night p-2 font-mono text-[11px] text-white/80">{res.logs.join("\n")}</pre>}
@@ -693,7 +693,7 @@ function NewToolModal({ open, onClose, onCreated }: { open: boolean; onClose: ()
             {res?.test && (
               <div className="flex flex-col gap-2">
                 <div className="flex gap-2"><TestChip t={res.test} />{res.scan && !res.scan.ok && <Chip size="sm" variant="soft" color="danger">static checks failed</Chip>}</div>
-                {res.scan?.blocking?.length > 0 && <ul className="text-xs text-danger">{res.scan.blocking.map((f: any, i: number) => <li key={i} className="font-mono">{f.file}:{f.line} [{f.rule}] {f.message}</li>)}</ul>}
+                {res.scan?.blocking?.length > 0 && <ul className="text-xs text-danger-ink">{res.scan.blocking.map((f: any, i: number) => <li key={i} className="font-mono">{f.file}:{f.line} [{f.rule}] {f.message}</li>)}</ul>}
                 {res.test.status !== "passed" && <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-xl bg-surface-secondary p-2 font-mono text-[11px]">{res.test.output}</pre>}
               </div>
             )}
@@ -728,7 +728,7 @@ function SkillsList({ version }: { version: number }) {
           {rows.map((s) => (
             <li key={s.name}>
               <button onClick={() => setOpen(s.name)} data-testid="skill-row" className="flex w-full flex-col gap-1 rounded-2xl border border-border bg-surface px-3.5 py-3 text-left hover:border-accent/50">
-                <div className="flex items-center gap-2"><BookOpen size={15} className="text-accent" /><span className="font-mono text-[13px] font-medium">{s.name}</span>
+                <div className="flex items-center gap-2"><BookOpen size={15} className="text-accent-ink" /><span className="font-mono text-[13px] font-medium">{s.name}</span>
                   <span className="ms-auto text-[11px] text-muted">{s.author}{s.reads ? ` · read ${s.reads}×` : ""}</span></div>
                 <p className="text-[13px] text-muted">{s.description}</p>
                 {(s.tags?.length > 0 || s.tools_used?.length > 0) && <div className="text-[11px] text-muted">{s.tags.map((t: string) => `#${t}`).join(" ")}{s.tools_used?.length ? ` · tools: ${s.tools_used.join(", ")}` : ""}</div>}
@@ -829,7 +829,7 @@ function PluginsList({ version }: { version: number }) {
       <p className="text-xs text-muted">Engine extensions — effects, audio instruments, QC checks and templates. Scenes use them with <span className="font-mono">from luma_engine.plugins import name</span>.</p>
       {rows === null ? <Spinner size="sm" /> : rows.map((p) => (
         <div key={p.name} className="flex items-center gap-2 rounded-2xl border border-border bg-surface px-3.5 py-3" data-testid="plugin-row">
-          <PuzzlePiece size={16} className="text-accent" />
+          <PuzzlePiece size={16} className="text-accent-ink" />
           <button className="min-w-0 flex-1 text-left" onClick={() => api(`/api/toolbox/plugins/${p.name}`).then(setOpen)}>
             <div className="flex items-center gap-2"><span className="font-mono text-[13px] font-medium">{p.name}</span><Chip size="sm" variant="soft">{p.kind}</Chip><span className="text-xs text-muted">v{p.version}</span>
               <Chip size="sm" variant="soft" color={p.test_status === "passed" ? "success" : "danger"}>tests {p.test_status}</Chip></div>

@@ -1,9 +1,10 @@
 import { AlertDialog, Avatar, Button, Dropdown, Form, Label, Modal, Separator, Spinner } from "@heroui/react";
-import { CopySimple, DotsThree, GearSix, PencilSimple, Play, Plus, SignOut, Trash } from "@phosphor-icons/react";
+import { Check, CopySimple, DotsThree, GearSix, PencilSimple, Play, Plus, SignOut, Trash } from "@phosphor-icons/react";
 import { useState } from "react";
 import { api, type Project } from "../lib/api";
 import { useStore } from "../lib/store";
-import { Field, Logo, SectionLabel, cn } from "../ui/kit";
+import { useTheme, type ThemeMode } from "../lib/theme";
+import { Field, Logo, SectionLabel, THEMES, cn } from "../ui/kit";
 import { ToolboxNav } from "./Toolbox";
 
 export function Sidebar() {
@@ -77,7 +78,7 @@ export function Sidebar() {
                     <Dropdown.Menu onAction={(k) => onAction(p, String(k))}>
                       <Dropdown.Item id="rename" textValue="Rename"><PencilSimple size={16} className="text-muted" /><Label>Rename</Label></Dropdown.Item>
                       <Dropdown.Item id="duplicate" textValue="Duplicate"><CopySimple size={16} className="text-muted" /><Label>Duplicate</Label></Dropdown.Item>
-                      <Dropdown.Item id="delete" textValue="Delete" variant="danger"><Trash size={16} className="text-danger" /><Label>Delete</Label></Dropdown.Item>
+                      <Dropdown.Item id="delete" textValue="Delete" variant="danger"><Trash size={16} className="text-danger-ink" /><Label>Delete</Label></Dropdown.Item>
                     </Dropdown.Menu>
                   </Dropdown.Popover>
                 </Dropdown>
@@ -131,6 +132,7 @@ function DemoButton() {
 function UserMenu() {
   const { user, logout, openSettings } = useStore();
   const name = user?.username ?? "";
+  const [mode, setMode] = useTheme();
   return (
     <Dropdown>
       <Dropdown.Trigger className="flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left outline-none hover:bg-surface-tertiary/70 focus-visible:ring-2 focus-visible:ring-focus">
@@ -145,10 +147,19 @@ function UserMenu() {
           if (k === "settings") openSettings("connections");
           if (k === "account") openSettings("account");
           if (k === "logout") logout();
+          if (String(k).startsWith("theme-")) setMode(String(k).slice(6) as ThemeMode);
         }}>
           <Dropdown.Item id="settings" textValue="Settings"><GearSix size={16} className="text-muted" /><Label>Settings</Label></Dropdown.Item>
           <Dropdown.Item id="account" textValue="Account"><PencilSimple size={16} className="text-muted" /><Label>Account & password</Label></Dropdown.Item>
-          <Dropdown.Item id="logout" textValue="Sign out" variant="danger"><SignOut size={16} className="text-danger" /><Label>Sign out</Label></Dropdown.Item>
+          <Dropdown.Section aria-label="Theme">
+            {THEMES.map(({ id, label, icon: Icon }) => (
+              <Dropdown.Item key={id} id={`theme-${id}`} textValue={`Theme: ${label}`}>
+                <Icon size={16} className="text-muted" /><Label>{label} theme</Label>
+                {mode === id && <Check size={14} weight="bold" className="ms-auto text-accent-ink" aria-label="selected" />}
+              </Dropdown.Item>
+            ))}
+          </Dropdown.Section>
+          <Dropdown.Item id="logout" textValue="Sign out" variant="danger"><SignOut size={16} className="text-danger-ink" /><Label>Sign out</Label></Dropdown.Item>
         </Dropdown.Menu>
       </Dropdown.Popover>
     </Dropdown>

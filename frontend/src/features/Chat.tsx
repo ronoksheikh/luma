@@ -293,7 +293,7 @@ const TimelineItem = memo(function TimelineItem({ item, onImage, runId }: { item
   if (item.kind === "user") {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-offwhite px-4 py-2.5 text-[14px] leading-relaxed">{item.text}</div>
+        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-sunken px-4 py-2.5 text-[14px] leading-relaxed">{item.text}</div>
       </div>
     );
   }
@@ -378,7 +378,7 @@ function ToolRow({ t, onImage }: { t: ToolItem; onImage: (m: Media) => void }) {
         <Disclosure.Heading>
           <Button slot="trigger" variant="ghost" fullWidth className="h-auto justify-start gap-3 rounded-2xl px-3 py-2.5 text-left font-normal">
             <span className={cn("flex size-7 shrink-0 items-center justify-center rounded-lg",
-              t.status === "running" ? "bg-accent/10 text-accent" : "bg-surface-secondary text-muted")}>
+              t.status === "running" ? "bg-accent/10 text-accent-ink" : "bg-surface-secondary text-muted")}>
               <Icon size={16} />
             </span>
             <span className="min-w-0 flex-1">
@@ -433,9 +433,9 @@ function ToolRow({ t, onImage }: { t: ToolItem; onImage: (m: Media) => void }) {
 
 function ToolStatus({ status }: { status: string }) {
   if (status === "running") return <Spinner size="sm" />;
-  if (status === "success") return <CheckCircle size={18} weight="fill" className="shrink-0 text-success" />;
+  if (status === "success") return <CheckCircle size={18} weight="fill" className="shrink-0 text-success-ink" />;
   if (status === "cancelled") return <StopCircle size={18} weight="fill" className="shrink-0 text-muted" />;
-  return <XCircle size={18} weight="fill" className="shrink-0 text-danger" />;
+  return <XCircle size={18} weight="fill" className="shrink-0 text-danger-ink" />;
 }
 
 function Block({ title, children, danger, preRef }: { title?: string; children: string; danger?: boolean; preRef?: React.Ref<HTMLPreElement> }) {
@@ -443,7 +443,7 @@ function Block({ title, children, danger, preRef }: { title?: string; children: 
     <div>
       {title && <div className="mb-1 text-[11px] font-medium text-muted">{title}</div>}
       <pre ref={preRef} className={cn("max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-surface-secondary p-3 font-mono text-[11.5px] leading-relaxed",
-        danger ? "text-danger" : "text-foreground/80")}>{children}</pre>
+        danger ? "text-danger-ink" : "text-foreground/80")}>{children}</pre>
     </div>
   );
 }
@@ -453,9 +453,9 @@ function DiffView({ diff }: { diff: string }) {
     <pre className="max-h-72 overflow-auto rounded-xl bg-surface-secondary py-2 font-mono text-[11.5px] leading-relaxed">
       {diff.split("\n").map((l, i) => (
         <div key={i} className={cn("px-3",
-          l.startsWith("+") && !l.startsWith("+++") ? "bg-success/10 text-success" :
-          l.startsWith("-") && !l.startsWith("---") ? "bg-danger/10 text-danger" :
-          l.startsWith("@@") ? "text-accent" : "text-muted")}>{l || " "}</div>
+          l.startsWith("+") && !l.startsWith("+++") ? "bg-success/10 text-success-ink" :
+          l.startsWith("-") && !l.startsWith("---") ? "bg-danger/10 text-danger-ink" :
+          l.startsWith("@@") ? "text-accent-ink" : "text-muted")}>{l || " "}</div>
       ))}
     </pre>
   );
@@ -464,8 +464,8 @@ function DiffView({ diff }: { diff: string }) {
 function AskPanel({ q, onAnswer }: { q: { text: string; options: string[] }; onAnswer: (t: string) => void }) {
   return (
     <div className="mx-auto w-full max-w-[760px] px-5 pb-2">
-      <div className="rounded-2xl border border-accent/30 bg-offwhite p-4">
-        <div className="flex items-center gap-2 text-sm font-medium text-brand-royal"><Question size={18} weight="fill" /> The director has a question</div>
+      <div className="rounded-2xl border border-accent/30 bg-sunken p-4">
+        <div className="flex items-center gap-2 text-sm font-medium text-accent-ink"><Question size={18} weight="fill" /> The director has a question</div>
         <div className="md mt-1.5"><ReactMarkdown remarkPlugins={[remarkGfm]}>{q.text}</ReactMarkdown></div>
         {q.options.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-2">
@@ -483,7 +483,7 @@ function Delivered() {
   const go = (tab: string) => { setRightTab(tab); setMainView("inspector"); };
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-success/25 bg-success/5 px-4 py-3">
-      <CheckCircle size={20} weight="fill" className="text-success" />
+      <CheckCircle size={20} weight="fill" className="text-success-ink" />
       <div className="min-w-0 flex-1">
         <div className="text-sm font-medium">Film delivered</div>
         <p className="text-xs text-muted">Watch it in the preview or download the files.</p>

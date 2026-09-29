@@ -3,7 +3,7 @@ import { ArrowCounterClockwise, GearSix } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useStore } from "../lib/store";
-import { SecretField, Toggle } from "../ui/kit";
+import { SecretField, ThemeSwitch, Toggle } from "../ui/kit";
 import { ElevenLabsConnection, LlmConnection } from "./Connections";
 
 export function SettingsModal() {
@@ -24,6 +24,7 @@ export function SettingsModal() {
                   <Tabs.Tab id="connections">Connections<Tabs.Indicator /></Tabs.Tab>
                   <Tabs.Tab id="director">Director<Tabs.Indicator /></Tabs.Tab>
                   <Tabs.Tab id="limits">Limits<Tabs.Indicator /></Tabs.Tab>
+                  <Tabs.Tab id="appearance">Appearance<Tabs.Indicator /></Tabs.Tab>
                   <Tabs.Tab id="account">Account<Tabs.Indicator /></Tabs.Tab>
                 </Tabs.List>
               </Tabs.ListContainer>
@@ -41,12 +42,23 @@ export function SettingsModal() {
               </Tabs.Panel>
               <Tabs.Panel id="director" className="pt-6"><DirectorPrompt /></Tabs.Panel>
               <Tabs.Panel id="limits" className="pt-6"><Limits /></Tabs.Panel>
+              <Tabs.Panel id="appearance" className="pt-6"><Appearance /></Tabs.Panel>
               <Tabs.Panel id="account" className="pt-6"><Account /></Tabs.Panel>
             </Tabs>
           </Modal.Body>
         </Modal.Dialog>
       </Modal.Container>
     </Modal.Backdrop>
+  );
+}
+
+function Appearance() {
+  return (
+    <section>
+      <h3 className="text-[16px] text-foreground">Theme</h3>
+      <p className="mb-4 mt-0.5 text-sm text-muted">System follows your device and switches with it. The choice is remembered in this browser.</p>
+      <ThemeSwitch />
+    </section>
   );
 }
 
@@ -197,7 +209,7 @@ function Account() {
         <h3 className="text-[15px] text-foreground">Change password</h3>
         <SecretField label="Current password" value={cur} onChange={setCur} autoComplete="current-password" />
         <SecretField label="New password" value={next} onChange={setNext} autoComplete="new-password" description="At least 8 characters. You'll be signed out everywhere." />
-        {error && <p role="alert" className="text-sm text-danger">{error}</p>}
+        {error && <p role="alert" className="text-sm text-danger-ink">{error}</p>}
         <div className="flex justify-end">
           <Button variant="secondary" isPending={busy} isDisabled={!cur || next.length < 8} onPress={change}>
             {({ isPending }) => <>{isPending && <Spinner size="sm" color="current" />}Update password</>}

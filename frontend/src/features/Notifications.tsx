@@ -90,9 +90,9 @@ export function NotificationBell({ live }: { live: number }) {
               const I = LEVEL_ICON[n.level] || Info;
               return (
                 <li key={n.id}>
-                  <button className={cn("flex w-full gap-2.5 px-3.5 py-2.5 text-left hover:bg-surface-secondary", !n.read && "bg-offwhite/60")}
+                  <button className={cn("flex w-full gap-2.5 px-3.5 py-2.5 text-left hover:bg-surface-secondary", !n.read && "bg-sunken/60")}
                     onClick={() => { selectProject(n.project_id); setOpen(false); }}>
-                    <I size={16} weight="fill" className={cn("mt-0.5 shrink-0", n.level === "success" ? "text-success" : n.level === "error" ? "text-danger" : n.level === "warning" ? "text-warning" : "text-accent")} />
+                    <I size={16} weight="fill" className={cn("mt-0.5 shrink-0", n.level === "success" ? "text-success-ink" : n.level === "error" ? "text-danger-ink" : n.level === "warning" ? "text-warning-ink" : "text-accent-ink")} />
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm">{n.message}</span>
                       <span className="block text-xs text-muted">{projects.find((p) => p.id === n.project_id)?.name} · {new Date(n.created_at * 1000).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}</span>

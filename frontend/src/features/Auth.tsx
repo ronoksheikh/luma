@@ -54,7 +54,7 @@ export function AuthScreen() {
               <SecretField label="Password" value={password} onChange={setPassword} name="password"
                 autoComplete={mode === "login" ? "current-password" : "new-password"}
                 description={mode === "signup" ? "At least 8 characters." : undefined} />
-              {error && <p role="alert" className="text-sm text-danger">{error}</p>}
+              {error && <p role="alert" className="text-sm text-danger-ink">{error}</p>}
               <Button type="submit" fullWidth isPending={busy} isDisabled={!username || password.length < (mode === "signup" ? 8 : 1)}>
                 {({ isPending }) => (
                   <>

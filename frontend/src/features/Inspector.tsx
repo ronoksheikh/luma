@@ -79,7 +79,7 @@ export function Inspector({ run }: { run: RunState }) {
 function Empty({ icon, title, children }: { icon: React.ReactNode; title: string; children?: React.ReactNode }) {
   return (
     <EmptyState className="flex h-full min-h-[320px] flex-col items-center justify-center gap-3 px-8 text-center">
-      <span className="flex size-12 items-center justify-center rounded-2xl bg-offwhite text-accent">{icon}</span>
+      <span className="flex size-12 items-center justify-center rounded-2xl bg-sunken text-accent-ink">{icon}</span>
       <div className="text-[15px] font-medium text-foreground">{title}</div>
       {children && <p className="max-w-[320px] text-sm text-muted">{children}</p>}
     </EmptyState>
@@ -126,7 +126,7 @@ function PreviewPanel({ run, files }: { run: RunState; files: FileItem[] }) {
         <div className="flex flex-col gap-1">
           {videos.map((vv) => (
             <button key={vv.url} onClick={() => setSel(vv.url)}
-              className={cn("flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm transition-colors", vv.url === src ? "bg-offwhite text-foreground" : "text-muted hover:bg-surface-secondary")}>
+              className={cn("flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm transition-colors", vv.url === src ? "bg-sunken text-foreground" : "text-muted hover:bg-surface-secondary")}>
               <FileVideo size={16} /><span className="truncate font-mono text-xs">{vv.label}</span>
             </button>
           ))}
@@ -232,7 +232,7 @@ function QcPanel({ run }: { run: RunState }) {
   const failed = rep.checks.filter((c: any) => !c.pass).length;
   return (
     <div className="flex flex-col gap-4 p-4">
-      <div className={cn("flex items-center gap-3 rounded-2xl px-4 py-3", rep.pass ? "bg-success/8 text-success" : "bg-danger/8 text-danger")}>
+      <div className={cn("flex items-center gap-3 rounded-2xl px-4 py-3", rep.pass ? "bg-success/8 text-success-ink" : "bg-danger/8 text-danger-ink")}>
         {rep.pass ? <CheckCircle size={22} weight="fill" /> : <XCircle size={22} weight="fill" />}
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium">{rep.pass ? "All checks passed" : `${failed} check${failed > 1 ? "s" : ""} failed`}</div>
@@ -243,9 +243,9 @@ function QcPanel({ run }: { run: RunState }) {
       <ul className="divide-y divide-separator overflow-hidden rounded-2xl border border-border bg-surface">
         {rep.checks.map((c: any) => (
           <li key={c.name} className="flex items-start gap-3 px-3.5 py-2.5">
-            {c.pass ? <CheckCircle size={18} weight="fill" className="mt-px shrink-0 text-success" />
-              : c.severity === "warning" ? <WarningCircle size={18} weight="fill" className="mt-px shrink-0 text-warning" />
-              : <XCircle size={18} weight="fill" className="mt-px shrink-0 text-danger" />}
+            {c.pass ? <CheckCircle size={18} weight="fill" className="mt-px shrink-0 text-success-ink" />
+              : c.severity === "warning" ? <WarningCircle size={18} weight="fill" className="mt-px shrink-0 text-warning-ink" />
+              : <XCircle size={18} weight="fill" className="mt-px shrink-0 text-danger-ink" />}
             <div className="min-w-0 flex-1">
               <div className="flex justify-between gap-2 text-sm">
                 <span>{QC_LABEL[c.name] ?? c.name.replaceAll("_", " ").replace(/^./, (m: string) => m.toUpperCase())}</span>

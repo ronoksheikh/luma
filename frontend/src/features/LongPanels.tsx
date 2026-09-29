@@ -15,7 +15,7 @@ import { FavoriteButton, PresentCard } from "./Cards";
 function Empty({ icon, title, children }: { icon: React.ReactNode; title: string; children?: React.ReactNode }) {
   return (
     <div className="flex min-h-[300px] flex-col items-center justify-center gap-3 px-8 text-center">
-      <span className="flex size-12 items-center justify-center rounded-2xl bg-offwhite text-accent">{icon}</span>
+      <span className="flex size-12 items-center justify-center rounded-2xl bg-sunken text-accent-ink">{icon}</span>
       <div className="text-[15px] font-medium">{title}</div>
       {children && <p className="max-w-[320px] text-sm text-muted">{children}</p>}
     </div>
@@ -38,10 +38,10 @@ function dur(a: number | null, b: number | null) {
 
 // =============================================================================================== Plan
 export function StatusIcon({ status }: { status: string }) {
-  if (status === "done") return <CheckCircle size={18} weight="fill" className="shrink-0 text-success" />;
+  if (status === "done") return <CheckCircle size={18} weight="fill" className="shrink-0 text-success-ink" />;
   if (status === "in_progress") return <Spinner size="sm" className="shrink-0" />;
-  if (status === "blocked") return <WarningCircle size={18} weight="fill" className="shrink-0 text-warning" />;
-  if (status === "failed") return <XCircle size={18} weight="fill" className="shrink-0 text-danger" />;
+  if (status === "blocked") return <WarningCircle size={18} weight="fill" className="shrink-0 text-warning-ink" />;
+  if (status === "failed") return <XCircle size={18} weight="fill" className="shrink-0 text-danger-ink" />;
   if (status === "skipped") return <MinusCircle size={18} className="shrink-0 text-muted" />;
   return <Circle size={18} className="shrink-0 text-muted" />;
 }
@@ -119,7 +119,7 @@ function TodoRow({ n, depth, onOpen }: { n: Node; depth: number; onOpen: (t: Tod
   return (
     <li>
       <button onClick={() => onOpen(n)} data-testid="todo-row" data-status={n.status}
-        className={cn("flex w-full items-start gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-surface-secondary", n.status === "in_progress" && "bg-offwhite")}
+        className={cn("flex w-full items-start gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-surface-secondary", n.status === "in_progress" && "bg-sunken")}
         style={{ paddingLeft: 10 + depth * 18 }}>
         <span className="mt-px"><StatusIcon status={n.status} /></span>
         <span className="min-w-0 flex-1">

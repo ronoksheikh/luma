@@ -76,8 +76,8 @@ export function AssetsPanel() {
         onDragLeave={() => setDrag(false)}
         onDrop={(e) => { e.preventDefault(); setDrag(false); upload(Array.from(e.dataTransfer.files)); }}
         className={cn("flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed px-4 py-7 text-center outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus",
-          drag ? "border-accent bg-offwhite" : "border-border bg-surface hover:border-accent/50")}>
-        <span className="flex size-10 items-center justify-center rounded-full bg-offwhite text-accent">
+          drag ? "border-accent bg-sunken" : "border-border bg-surface hover:border-accent/50")}>
+        <span className="flex size-10 items-center justify-center rounded-full bg-sunken text-accent-ink">
           {busy ? <Spinner size="sm" /> : <UploadSimple size={20} />}
         </span>
         <div className="text-sm">{busy ? "Uploading and analysing…" : "Drop files or click to upload"}</div>
@@ -87,7 +87,7 @@ export function AssetsPanel() {
 
       <div className="flex items-center justify-between px-0.5 text-xs text-muted">
         <span>Assets are analysed automatically and shared with the director.</span>
-        <span className={cn("tabular-nums", assets.length >= max && "text-danger")}>{assets.length} / {max}</span>
+        <span className={cn("tabular-nums", assets.length >= max && "text-danger-ink")}>{assets.length} / {max}</span>
       </div>
 
       {assets.length > 0 && (

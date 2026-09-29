@@ -25,7 +25,7 @@ export function RunBar({ run }: { run: RunState }) {
     <div className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-2 border-b border-separator bg-surface/95 px-4 py-2 backdrop-blur" data-testid="run-bar">
       {p.total > 0 && (
         <button onClick={openPlan} className="flex min-w-[180px] flex-1 items-center gap-2.5 text-left" aria-label="Open the plan">
-          <ListChecks size={16} className="shrink-0 text-accent" />
+          <ListChecks size={16} className="shrink-0 text-accent-ink" />
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2 text-xs">
               <span className="truncate">{p.current ? p.current.title : p.done === p.total ? "Plan complete" : "Plan"}</span>

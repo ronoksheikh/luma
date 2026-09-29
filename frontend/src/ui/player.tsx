@@ -41,7 +41,7 @@ export function VideoPlayer({ src, poster, fps = 60, chapters = [], loop: loop0 
   const seek = (x: number) => { if (v.current) v.current.currentTime = x; };
   return (
     <div className={cn("flex flex-col gap-2", className)} onPointerDown={() => { activePlayer = api; }} onFocusCapture={() => { activePlayer = api; }}>
-      <div className="overflow-hidden rounded-xl bg-night ring-1 ring-black/5">
+      <div className="overflow-hidden rounded-xl bg-night ring-1 ring-border">
         <video ref={(el) => { v.current = el; videoRef?.(el); }} src={src} poster={poster ?? undefined} className="aspect-video w-full object-contain" loop={loop}
           playsInline preload="metadata" data-testid="player-video"
           onTimeUpdate={(e) => { setT(e.currentTarget.currentTime); onTime?.(e.currentTarget.currentTime); }}
@@ -57,7 +57,7 @@ export function VideoPlayer({ src, poster, fps = 60, chapters = [], loop: loop0 
             {playing ? <Pause size={14} weight="fill" /> : <Play size={14} weight="fill" />}
           </Button>
           <Tip content="Next frame  ."><Button isIconOnly size="sm" variant="ghost" aria-label="Next frame" onPress={() => step(1)}><CaretRight size={16} /></Button></Tip>
-          <Tip content="Loop"><Button isIconOnly size="sm" variant="ghost" aria-label="Loop" aria-pressed={loop} className={cn(loop ? "text-accent" : "text-muted")} onPress={() => setLoop(!loop)}><Repeat size={16} /></Button></Tip>
+          <Tip content="Loop"><Button isIconOnly size="sm" variant="ghost" aria-label="Loop" aria-pressed={loop} className={cn(loop ? "text-accent-ink" : "text-muted")} onPress={() => setLoop(!loop)}><Repeat size={16} /></Button></Tip>
           <ToggleButtonGroup size="sm" selectionMode="single" disallowEmptySelection selectedKeys={new Set([String(rate)])} aria-label="Playback speed"
             onSelectionChange={(k) => setRate(Number([...(k as Set<Key>)][0]))} className="ml-1">
             {["0.25", "0.5", "1", "2"].map((r, i) => (
@@ -103,7 +103,7 @@ export function Scrubber({ t, dur, chapters = [], onSeek }: { t: number; dur: nu
           {chapters.map((c) => (
             <button key={c.t + c.label} onClick={() => onSeek(c.t + 1e-3)}
               className={cn("rounded-full border px-2 py-0.5 text-[11px] tabular-nums transition-colors",
-                t >= c.t - 0.02 ? "border-accent/40 bg-offwhite text-brand-royal" : "border-border text-muted hover:text-foreground")}>
+                t >= c.t - 0.02 ? "border-accent/40 bg-sunken text-accent-ink" : "border-border text-muted hover:text-foreground")}>
               {c.label} <span className="opacity-60">{c.t.toFixed(2)}s</span>
             </button>
           ))}

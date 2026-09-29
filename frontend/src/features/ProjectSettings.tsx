@@ -126,7 +126,7 @@ export function ProjectSettingsModal() {
                         <Chip key={c} variant="secondary" className="gap-1.5 pr-1 font-mono">
                           <span className="size-3 rounded-full ring-1 ring-black/10" style={{ background: c }} />
                           <Chip.Label>{c}</Chip.Label>
-                          <button aria-label={`Remove ${c}`} className="rounded-full p-0.5 text-muted hover:text-danger"
+                          <button aria-label={`Remove ${c}`} className="rounded-full p-0.5 text-muted hover:text-danger-ink"
                             onClick={() => up({ avoid_colors: st.avoid_colors.filter((x) => x !== c) })}><X size={12} /></button>
                         </Chip>
                       ))}
