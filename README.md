@@ -211,6 +211,17 @@ the parent, they are cancelled with it, and their timelines nest under the paren
 | `Ctrl`/`⌘` `K` | command palette: jump to a project, artifact or todo; start the demo; export all |
 | `Ctrl`/`⌘` `,` | settings |
 
+### Theme
+
+Light, Dark or System (follows your device): pick it from the account menu (bottom of the sidebar) or Settings →
+Appearance. The choice is remembered in this browser (`localStorage["luma.theme"]`) and applied before the first
+paint, so there is no flash. The brand colours and the logo are the same in both themes; only the neutrals change.
+Text and focus rings meet WCAG AA in both (`python3 frontend/scripts/contrast.py` checks every token pair).
+
+| Light | Dark |
+| --- | --- |
+| ![Light theme](docs/screenshots/theme_light.png) | ![Dark theme](docs/screenshots/theme_dark.png) |
+
 ## Toolbox: the director builds its own tools
 
 ![Toolbox](docs/screenshots/toolbox_tools.png)
@@ -342,8 +353,9 @@ preview. The **Templates** gallery (left nav) starts a new project from one: its
 
 ### The Toolbox UI
 
-**Toolbox** in the left nav (tools, skills, plugins, templates with counts) and as a right-pane tab. Tools can be
-filtered by tags, author (agent/user), status (enabled / disabled / failing / modified / deprecated) and scope. The
+**Toolbox** in the left nav (tools, skills, plugins, templates with counts; collapsible) and as a right-pane tab. Tools
+can be filtered from one **Filters** popover: tags, author (agent/user), status (enabled / disabled / failing / modified /
+deprecated) and scope. The
 tool detail shows the manifest, the rendered README, the source and tests (with **Run tests**), usage stats and recent
 calls (linked to their runs), the **version history with diffs and revert**, and enable/disable, promote and delete.
 **Try it** is a form generated from the tool's JSON Schema that runs the tool in the current project and shows the

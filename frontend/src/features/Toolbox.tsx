@@ -46,7 +46,7 @@ export function Code_({ code, language, maxH = "420px" }: { code: string; langua
     <pre className="hljs overflow-auto rounded-xl bg-surface-secondary py-2 font-mono text-[12px] leading-[1.55]" style={{ maxHeight: maxH }}>
       {lines.map((l, i) => (
         <div key={i} className="flex">
-          <span className="w-10 shrink-0 select-none pr-3 text-right text-muted/70">{i + 1}</span>
+          <span className="w-10 shrink-0 select-none pr-3 text-right text-muted">{i + 1}</span>
           <span className="whitespace-pre pr-3" dangerouslySetInnerHTML={{ __html: l || " " }} />
         </div>
       ))}
@@ -300,7 +300,7 @@ function ToolsList({ version }: { version: number }) {
                   </span>
                 </div>
                 <p className="line-clamp-1 text-[13px] text-muted">{r.description}</p>
-                <div className="text-xs tabular-nums text-muted/80">{statsLine(r.stats)}{r.stats?.last_error && r.status === "failing" ? ` · last error: ${String(r.stats.last_error).slice(0, 80)}` : ""}</div>
+                <div className="text-xs tabular-nums text-muted">{statsLine(r.stats)}{r.stats?.last_error && r.status === "failing" ? ` · last error: ${String(r.stats.last_error).slice(0, 80)}` : ""}</div>
               </button>
             </li>
           ))}
@@ -964,7 +964,7 @@ export function ToolboxNav() {
   }, [projectId]);
   const item = (label: string, n: number | undefined, Icon: any, onPress: () => void, testid: string) => (
     <button onClick={onPress} data-testid={testid} className="flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] text-foreground/85 outline-none transition-colors hover:bg-surface-tertiary/70 focus-visible:ring-2 focus-visible:ring-focus">
-      <Icon size={16} className="text-muted" /><span className="flex-1">{label}</span>{n ? <span className="text-xs tabular-nums text-muted/80">{n}</span> : null}
+      <Icon size={16} className="text-muted" /><span className="flex-1">{label}</span>{n ? <span className="text-xs tabular-nums text-muted">{n}</span> : null}
     </button>
   );
   return (

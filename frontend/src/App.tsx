@@ -1,5 +1,5 @@
 import { AlertDialog, Button, Drawer, Spinner, Toast, ToggleButton, ToggleButtonGroup } from "@heroui/react";
-import { ChatCircleText, FilmSlate, FolderSimplePlus, List } from "@phosphor-icons/react";
+import { ChatCircleText, FilmSlate, List } from "@phosphor-icons/react";
 import { useEffect, useRef, useState, type Key } from "react";
 import { AuthScreen } from "./features/Auth";
 import { Chat } from "./features/Chat";
@@ -14,7 +14,7 @@ import { api, setUnauthorizedHandler, type Project } from "./lib/api";
 import { ACTIVE, useRunEvents } from "./lib/run";
 import { playerKeys } from "./ui/player";
 import { useStore } from "./lib/store";
-import { ShellSkeleton } from "./ui/ai";
+import { Orb, ShellSkeleton } from "./ui/ai";
 import { cn } from "./ui/kit";
 
 export default function App() {
@@ -149,7 +149,7 @@ function NoProject() {
   const [busy, setBusy] = useState(false);
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
-      <span className="flex size-14 items-center justify-center rounded-2xl bg-sunken text-accent-ink"><FolderSimplePlus size={28} /></span>
+      <Orb size={44} />
       <div>
         <h2 className="text-[20px]">Start a project</h2>
         <p className="mx-auto mt-1 max-w-sm text-sm text-muted">A project holds your brand assets, output settings and the director's workspace.</p>

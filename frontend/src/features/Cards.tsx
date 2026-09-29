@@ -246,7 +246,7 @@ function CodeCard({ art }: { art: Artifact }) {
       <pre className="hljs max-h-[420px] overflow-auto rounded-xl bg-surface-secondary py-2 font-mono text-[12px] leading-[1.55]">
         {lines.map((l: string, i: number) => (
           <div key={i} className={cn("flex", hl.has(i + 1) && "bg-accent/10")}>
-            <span className="w-10 shrink-0 select-none pr-3 text-right text-muted/70">{i + 1}</span>
+            <span className="w-10 shrink-0 select-none pr-3 text-right text-muted">{i + 1}</span>
             <span className="whitespace-pre pr-3" dangerouslySetInnerHTML={{ __html: l || " " }} />
           </div>
         ))}

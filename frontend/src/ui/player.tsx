@@ -104,7 +104,7 @@ export function Scrubber({ t, dur, chapters = [], onSeek }: { t: number; dur: nu
             <button key={c.t + c.label} onClick={() => onSeek(c.t + 1e-3)}
               className={cn("rounded-full border px-2 py-0.5 text-xs tabular-nums transition-colors",
                 t >= c.t - 0.02 ? "border-accent/40 bg-sunken text-accent-ink" : "border-border text-muted hover:text-foreground")}>
-              {c.label} <span className="opacity-60">{c.t.toFixed(2)}s</span>
+              {c.label} <span>{c.t.toFixed(2)}s</span>
             </button>
           ))}
         </div>

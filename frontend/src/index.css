@@ -39,10 +39,15 @@
     --accent: #2970ec;
     --accent-foreground: #ffffff;
     --accent-ink: #1557d1;
-    --success-ink: #0b7a45;
+    --success-ink: #096b3b;
     --danger-ink: #c22b2b;
     --warning-ink: #8a5300;
     --focus: #2970ec;
+    /* readable text on the soft chip tints (HeroUI derives these from the raw status colours, which are too light) */
+    --accent-soft-foreground: var(--accent-ink);
+    --success-soft-foreground: var(--success-ink);
+    --danger-soft-foreground: var(--danger-ink);
+    --warning-soft-foreground: var(--warning-ink);
 
     --background: #f5f8fe;
     --foreground: #111318;
@@ -85,6 +90,10 @@
     --danger-ink: #ff8a93;
     --warning-ink: #f2c86b;
     --focus: #5daeff;
+    --accent-soft-foreground: var(--accent-ink);
+    --success-soft-foreground: var(--success-ink);
+    --danger-soft-foreground: var(--danger-ink);
+    --warning-soft-foreground: var(--warning-ink);
 
     --background: #0b1220;
     --foreground: #e8eefb;
@@ -197,6 +206,9 @@
     background-size: 14px 14px;
     background-position: 0 0, 0 7px, 7px -7px, -7px 0;
   }
+
+  /* HeroUI's danger menu items use the raw danger colour, which is below AA on both themes */
+  .menu-item--danger, .menu-item--danger .label { color: var(--danger-ink); }
 
   /* --- AI status components (dependency-free) ------------------------------------------------------------------ */
   /* Text with a light sweeping across it: "Thinking…", a running step. */

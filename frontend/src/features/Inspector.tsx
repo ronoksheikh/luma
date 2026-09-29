@@ -53,7 +53,7 @@ export function Inspector({ run }: { run: RunState }) {
         <Tabs.List aria-label="Inspector">
           {[...primary, ...more].map(({ id, label, icon: I, badge }) => (
             <Tabs.Tab key={id} id={id} aria-label={label}
-              className={cn("group h-10 w-auto flex-none grow-0 gap-1.5 whitespace-nowrap px-3", more.some((m) => m.id === id) && id !== rightTab && "hidden")}>
+              className={cn("group h-10 w-auto flex-none grow-0 gap-1.5 whitespace-nowrap px-1.5 @[480px]:px-3", more.some((m) => m.id === id) && id !== rightTab && "hidden")}>
               <span title={label} className="inline-flex shrink-0"><I size={16} /></span>
               <span className="hidden group-data-[selected=true]:inline @[640px]:inline">{label}</span>
               {badge ? <span className="text-xs tabular-nums text-muted">{badge}</span> : null}
@@ -253,7 +253,7 @@ function QcPanel({ run }: { run: RunState }) {
         {rep.pass ? <CheckCircle size={22} weight="fill" /> : <XCircle size={22} weight="fill" />}
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium">{rep.pass ? "All checks passed" : `${failed} check${failed > 1 ? "s" : ""} failed`}</div>
-          <div className="truncate font-mono text-xs opacity-70">{latest.path}</div>
+          <div className="truncate font-mono text-xs">{latest.path}</div>
         </div>
         <Chip size="sm" variant="soft" color={rep.pass ? "success" : "danger"}>{rep.checks.length - failed} / {rep.checks.length}</Chip>
       </div>

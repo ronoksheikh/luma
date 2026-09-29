@@ -238,6 +238,7 @@ function Welcome({ llmReady, onPick }: { llmReady: boolean; onPick: (t: string) 
   return (
     <div className="flex flex-col gap-8 pt-[6vh]">
       <div>
+        <Orb size={32} className="mb-4" />
         <h2 className="text-[24px] leading-tight">What are we making?</h2>
         <p className="mt-2 max-w-[520px] text-[16px] text-muted">
           Add your logo and brand files, describe the film, and the director plans, animates, renders and checks it while you watch.
@@ -256,7 +257,7 @@ function Welcome({ llmReady, onPick }: { llmReady: boolean; onPick: (t: string) 
       <div className="grid gap-2 sm:grid-cols-3">
         {IDEAS.map((i) => (
           <button key={i.title} onClick={() => onPick(i.text)}
-            className="group rounded-2xl border border-border bg-surface p-4 text-left transition-[border-color,box-shadow] hover:border-accent/40 hover:shadow-[0_2px_12px_-4px_rgba(41,112,236,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus">
+            className="group rounded-2xl bg-surface-secondary p-4 text-left transition-colors duration-150 hover:bg-surface-tertiary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus">
             <div className="text-sm font-medium">{i.title}</div>
             <p className="mt-1 line-clamp-3 text-[13px] leading-snug text-muted">{i.text}</p>
           </button>
@@ -565,7 +566,7 @@ function Composer({ text, setText, onSend, onStop, sending, active, hasRun, disa
   const { busy, pick, inputEl } = useUpload();
   return (
     <div className="shrink-0 px-3 pb-3 sm:px-5 sm:pb-4">
-      <div className="mx-auto max-w-[760px] rounded-2xl border border-border bg-surface shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(16,24,40,0.10)] transition-[border-color,box-shadow] focus-within:border-accent/50 focus-within:shadow-[0_0_0_4px_rgba(41,112,236,0.10)]">
+      <div className="mx-auto max-w-[760px] rounded-2xl border border-border bg-surface shadow-soft transition-[border-color,box-shadow] focus-within:border-accent/50 focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--accent)_16%,transparent)]">
         <TextArea
           aria-label="Message the director"
           rows={2}

@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 USER, PASSWORD = "matrix_ui", "a long password 123"
 COMBOS = [(1440, 900, "light"), (1440, 900, "dark"), (390, 844, "light"), (390, 844, "dark"), (1280, 800, "dark"), (768, 1024, "light")]
 SHOT_SIZES = {(1440, 900), (390, 844)}
+AXE = os.environ.get("LUMA_AXE")  # path to axe-core's axe.min.js: also audit colour contrast (WCAG AA) on every view
 
 
 @pytest.fixture(scope="module")
@@ -62,8 +63,24 @@ def _ctx(browser, w, h, theme):
     return ctx
 
 
+AXE_FINDINGS: list = []
+
+
+def _axe(page, name, w, theme):
+    if not AXE:
+        return
+    page.evaluate(Path(AXE).read_text())
+    res = page.evaluate("() => axe.run(document, {runOnly: ['color-contrast'], resultTypes: ['violations']})")
+    for v in res["violations"]:
+        for n in v["nodes"]:
+            d = n["any"][0]["data"] if n.get("any") else {}
+            AXE_FINDINGS.append({"view": name, "theme": theme, "w": w, "target": n["target"], "ratio": d.get("contrastRatio"), "fg": d.get("fgColor"),
+                                 "bg": d.get("bgColor"), "size": d.get("fontSize"), "text": (n.get("html") or "")[:120]})
+
+
 def _snap(page, name, w, h, theme):
-    page.wait_for_timeout(700)
+    page.wait_for_timeout(700)  # let open/close animations settle (axe would measure blended colours mid-fade)
+    _axe(page, name, w, theme)
     over = page.evaluate("() => document.documentElement.scrollWidth - window.innerWidth")
     assert over <= 1, f"{name} at {w}x{h}: page scrolls horizontally by {over}px"
     if OUT and (w, h) in SHOT_SIZES:
@@ -119,10 +136,38 @@ def test_matrix(server, browser, setup, w, h, theme):
     _snap(page, "chat", w, h, theme)
     page.locator("[data-testid=card-video]").last.scroll_into_view_if_needed()
     _snap(page, "run-cards", w, h, theme)
+    for kind in ("timeline", "file", "code", "palette", "storyboard", "table"):
+        loc = page.locator(f"[data-testid=card-{kind}]").first
+        if loc.count():
+            loc.scroll_into_view_if_needed()
+            _snap(page, f"card-{kind}", w, h, theme)
+    grp = page.locator("[data-testid=step-group]").first
+    if grp.count():
+        grp.scroll_into_view_if_needed()
+        grp.get_by_role("button").first.click()
+        grp.locator("[data-testid=tool-step] button").first.click()
+        _snap(page, "steps-open", w, h, theme)
+    page.keyboard.press("Control+k")
+    page.get_by_role("textbox", name="Search commands").fill("render")
+    _snap(page, "palette", w, h, theme)
+    page.keyboard.press("Escape")
+    if not mobile:
+        page.get_by_text(USER, exact=True).first.click()
+        _snap(page, "account-menu", w, h, theme)
+        page.keyboard.press("Escape")
     # inspector tabs
     _open_tab(page, "Plan", mobile)
     _tabs_fit(page, w)
     _snap(page, "inspector", w, h, theme)
+    for tab in ("Artifacts", "Toolbox", "Terminal", "Assets", "Preview"):  # the longest selected label must fit too
+        page.get_by_role("tab", name=tab).click()
+        _tabs_fit(page, w)
+    _open_tab(page, "Preview", False)
+    page.locator("[data-testid=player-video]:visible").first.wait_for()
+    _snap(page, "preview", w, h, theme)
+    _open_tab(page, "QC", False)
+    page.get_by_text("All checks passed").wait_for(timeout=20000)
+    _snap(page, "qc", w, h, theme)
     # toolbox + tool detail
     _open_tab(page, "Toolbox", False)
     panel = page.locator("[data-testid=toolbox-panel]")
@@ -137,3 +182,17 @@ def test_matrix(server, browser, setup, w, h, theme):
     page.get_by_role("dialog").first.wait_for()
     _snap(page, "settings", w, h, theme)
     ctx.close()
+
+
+def test_zz_axe_report():
+    """Runs last: prints and stores the contrast findings when LUMA_AXE is set."""
+    if not AXE:
+        pytest.skip("LUMA_AXE not set")
+    import json
+
+    out = Path(OUT or ".") / "axe-contrast.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(AXE_FINDINGS, indent=1))
+    for f in AXE_FINDINGS:
+        print(f"AXE {f['theme']:5} {f['w']:4} {f['view']:11} {f['ratio']} fg={f['fg']} bg={f['bg']} {f['size']} {f['target']} {f['text'][:70]!r}")
+    assert not AXE_FINDINGS, f"{len(AXE_FINDINGS)} contrast violations (see {out})"

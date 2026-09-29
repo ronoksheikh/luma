@@ -51,7 +51,7 @@ export function Sidebar() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-        <SectionLabel right={projects.length > 0 ? <span className="text-xs tabular-nums text-muted/80">{projects.length}</span> : undefined}>Projects</SectionLabel>
+        <SectionLabel right={projects.length > 0 ? <span className="text-xs tabular-nums text-muted">{projects.length}</span> : undefined}>Projects</SectionLabel>
         <ul className="flex flex-col gap-0.5">
           {projects.map((p) => {
             const active = p.id === projectId;
@@ -65,7 +65,7 @@ export function Sidebar() {
                     <span className={cn("truncate text-sm", active ? "font-medium text-foreground" : "text-foreground/85")}>{p.name}</span>
                     {running && <span className="size-1.5 shrink-0 animate-breathe rounded-full bg-accent" aria-label="running" />}
                   </div>
-                  <div className={cn("truncate text-xs tabular-nums text-muted", !active && "opacity-80")}>
+                  <div className={cn("truncate text-xs tabular-nums text-muted", )}>
                     {p.kind === "demo" ? "Demo · " : ""}{p.settings.width}×{p.settings.height} · {p.settings.duration}s
                   </div>
                 </button>

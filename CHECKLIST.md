@@ -190,3 +190,34 @@ Legend: `[x]` done **and verified by running it**, `[~]` done with a caveat note
 - [~] 4. **real OpenRouter run: not run** — no API key is available in this environment. The same flow (new effect → plugin with tests → used in the video → scene saved as a template) is covered with the scripted model (`test_agent_builds_an_effect_plugin_uses_it_in_the_video_and_saves_a_template`)
 - [x] 5. tools, venv and skills survive a container rebuild (e2e)
 - [x] 6. all tests pass; README "Toolbox" chapter with screenshots and the lifecycle
+
+---
+
+# UI refresh — cleaner, calmer, dark mode (UI only)
+
+Branch `ui-refresh-dark-mode`. Backend, engine, prompts, docker, API contracts, event types and the `run.ts` reducer / `api.ts` are unchanged; no new UI library (HeroUI v3 + Phosphor); brand colours and logo untouched.
+
+## Dark mode
+- [x] Light / Dark / System switch in the account menu and Settings → Appearance; persisted in `localStorage["luma.theme"]`; System follows `prefers-color-scheme` live
+- [x] applied before first paint by a blocking same-origin script (`public/theme-init.js`) — an *inline* script would be blocked by the server's CSP (`default-src 'self'`), so it is a file; `lib/theme.ts` re-applies on load as a safety net
+- [x] HeroUI v3 mechanism (`.dark` + `data-theme` on `<html>`); dark value for every token in `index.css`; semantic tokens (`sunken`, `*-ink`, shadows, checkerboard) replace hard-coded colours; brand palette unchanged
+- [x] theme-aware: highlight.js (one token palette), diffs, `.md`, cards, chips (HeroUI soft-chip foregrounds re-pointed at the ink tokens), toasts, modals, danger menu items, waveform/timeline, palette / storyboard / comparison cards, empty states, sign-in
+- [x] terminal (xterm) and player stay Night in both themes (brand dark surfaces); logo and favicon unchanged
+- [x] WCAG AA: `frontend/scripts/contrast.py` (84 text pairs + focus rings, both themes) **and** an axe-core colour-contrast audit of the rendered views in both themes at 390 / 768 / 1280 / 1440 px — sign-in, chat, every card type, expanded steps, palette, account menu, inspector, QC, Toolbox, tool detail, settings: **0 violations** (`LUMA_AXE=…/axe.min.js`, opt-in)
+- [~] the audit covers those views; states that need a live model or the container sandbox (the terminal panel, real provider errors) were not audited
+
+## Calmer layout
+- [x] chat: one-line tool rows (icon · name · argument summary · time · status), collapsed by default; consecutive calls grouped as "N steps" (running step shimmers, errors open themselves); long diffs / logs collapse behind "Show N more lines"; presentation cards stay prominent, with fewer inner borders
+- [x] AI status components (dependency-free, brand colours, reduced-motion safe) in `ui/ai.tsx`: `Shimmer`, `Orb`, `ThinkingBlock` (live timer, auto-collapse), skeletons
+- [x] inspector: icon tab bar (selected tab labelled, all labels once the pane is ≥ 640 px) + a real "More" menu; no clipped labels at 1280 px (asserted for every primary tab)
+- [x] run bar: one status strip — orb + stage, plan `n / m`, budget
+- [x] sidebar: quieter project rows and counts, collapsible Toolbox section (remembered); Toolbox panel: search + one Filters popover, denser rows with a single status chip
+- [x] skeletons instead of bare spinners (app shell, Toolbox, QC); type scale 12 / 13 / 14 / 16 / 20 / 24; motion 150–200 ms and off under `prefers-reduced-motion`
+- [x] responsive: 390 / 768 / 1280 / 1440 px with no horizontal page scroll (asserted); modals and alert dialogs become bottom sheets on phones; toasts move to the top below `lg` so they never cover the composer or bottom bar; player controls wrap
+- [x] every `data-testid`, `aria-label` and role/name the tests use is kept (tab labels stay as accessible names on the icon tabs)
+
+## Verified
+- [x] `npm run typecheck && npm run build`
+- [x] `pytest -m ui tests/ui`: theme toggle (account menu + Settings, persistence after reload, System follows the OS, no flash), the long-job and Toolbox suites, and the size × theme matrix (screenshots + layout + contrast) — before/after images in `docs/ui-refresh/`
+- [~] `tests/e2e/test_ui_smoke.py` needs Docker and was **not run**; it was read against the new UI (tab and "Rendered the film" / "Frame …" text stay reachable — a collapsed "N steps" header lists the step names and shows the running step's progress). `docs/screenshots/terminal.png` comes from that test and was **not** regenerated
+
